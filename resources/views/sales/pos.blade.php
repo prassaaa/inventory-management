@@ -1,0 +1,586 @@
+@extends('layouts.app')
+
+@section('title', 'Kasir (POS)')
+
+@section('styles')
+<style>
+    /* POS specific styles */
+    .product-card {
+        cursor: pointer;
+        transition: all 0.2s;
+        height: 100%;
+        border-radius: 0.75rem;
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .product-image {
+        height: 100px;
+        object-fit: contain;
+        padding: 10px;
+    }
+    
+    .cart-container {
+        min-height: 400px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .totals-section {
+        background-color: #f8fafc;
+        padding: 15px;
+        border-radius: 0.75rem;
+    }
+    
+    .products-container {
+        min-height: 600px;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    
+    .category-pills {
+        overflow-x: auto;
+        white-space: nowrap;
+        padding-bottom: 10px;
+    }
+    
+    .category-pill {
+        display: inline-block;
+        padding: 8px 15px;
+        margin-right: 5px;
+        border-radius: 999px;
+        background-color: #f3f4f6;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .category-pill.active {
+        background-color: #2563eb;
+        color: white;
+    }
+    
+    /* Custom scrollbar */
+    .products-container::-webkit-scrollbar,
+    .cart-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .products-container::-webkit-scrollbar-track,
+    .cart-container::-webkit-scrollbar-track {
+        background: #f8fafc;
+    }
+    
+    .products-container::-webkit-scrollbar-thumb,
+    .cart-container::-webkit-scrollbar-thumb {
+        background-color: #d1d5db;
+        border-radius: 20px;
+    }
+    
+    .products-container::-webkit-scrollbar-thumb:hover,
+    .cart-container::-webkit-scrollbar-thumb:hover {
+        background-color: #9ca3af;
+    }
+</style>
+@endsection
+
+@section('content')
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-dark fw-bold">
+                <i class="fas fa-cash-register me-2 text-primary"></i> Kasir (POS)
+            </h1>
+            <p class="text-muted">Proses transaksi penjualan dengan cepat dan mudah</p>
+        </div>
+        <div>
+            <a href="{{ route('sales.index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-list me-1"></i> Lihat Penjualan
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Cart Section -->
+        <div class="col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-primary">
+                        <i class="fas fa-shopping-cart me-1"></i> Keranjang Belanja
+                    </h6>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="clear-cart">
+                        <i class="fas fa-trash me-1"></i> Kosongkan
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="cart-container">
+                        <table class="table table-bordered table-sm mb-0" id="cart-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Produk</th>
+                                    <th width="80">Qty</th>
+                                    <th width="120">Harga</th>
+                                    <th width="120">Subtotal</th>
+                                    <th width="40">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Cart items will be added here dynamically -->
+                                <tr id="empty-cart-row">
+                                    <td colspan="5" class="text-center py-3 text-muted">Keranjang kosong</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="totals-section">
+                        <div class="row mb-2">
+                            <div class="col-6 text-end">Subtotal:</div>
+                            <div class="col-6 text-end fw-medium" id="subtotal">0</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-end">Diskon:</div>
+                            <div class="col-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="number" class="form-control form-control-sm text-end" id="discount" value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-end">Pajak (10%):</div>
+                            <div class="col-6 text-end fw-medium" id="tax">0</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6 text-end fw-bold text-primary">Total:</div>
+                            <div class="col-6 text-end fw-bold text-primary fs-5" id="total">0</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-end">Metode Pembayaran:</div>
+                            <div class="col-6">
+                                <select class="form-select form-select-sm" id="payment-type">
+                                    <option value="tunai">Tunai</option>
+                                    <option value="kartu">Kartu</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-end">Jumlah Dibayar:</div>
+                            <div class="col-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="number" class="form-control form-control-sm text-end" id="paid-amount" value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-end">Kembalian:</div>
+                            <div class="col-6 text-end fw-medium" id="change">0</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6 text-end">Nama Pelanggan:</div>
+                            <div class="col-6">
+                                <input type="text" class="form-control form-control-sm" id="customer-name" placeholder="Opsional">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="button" class="btn btn-success btn-block w-100" id="process-payment">
+                                    <i class="fas fa-cash-register me-1"></i> Proses Pembayaran
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Products Section -->
+        <div class="col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h6 class="m-0 fw-bold text-primary">
+                                <i class="fas fa-box me-1"></i> Produk
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-0">
+                                    <i class="fas fa-search text-primary"></i>
+                                </span>
+                                <input type="text" class="form-control border-0 bg-light" id="search-product" placeholder="Cari produk...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="category-pills mb-3">
+                        <div class="category-pill active" data-category="all">Semua Kategori</div>
+                        @foreach($categories as $category)
+                            <div class="category-pill" data-category="{{ $category->id }}">{{ $category->name }}</div>
+                        @endforeach
+                    </div>
+                    
+                    <div class="products-container">
+                        <div class="row" id="products-grid">
+                            @foreach($products as $product)
+                                <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
+                                    <div class="card product-card" data-id="{{ $product->id }}" data-code="{{ $product->code }}" data-name="{{ $product->name }}" data-price="{{ $product->selling_price }}" data-unit-id="{{ $product->base_unit_id }}" data-unit-name="{{ $product->baseUnit->name }}">
+                                        <div class="text-center">
+                                            @if($product->image)
+                                                <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="product-image">
+                                            @else
+                                                <div class="product-image d-flex align-items-center justify-content-center bg-light">
+                                                    <i class="fas fa-box fa-3x text-secondary"></i>
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="card-body p-2 text-center">
+                                            <h6 class="card-title mb-1 text-truncate">{{ $product->name }}</h6>
+                                            <p class="card-text text-primary fw-bold mb-0">Rp {{ number_format($product->selling_price, 0, ',', '.') }}</p>
+                                            <small class="text-muted">Stok: {{ $product->storeStock ? $product->storeStock->quantity : 0 }} {{ $product->baseUnit->name }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Success Modal -->
+<div class="modal fade" id="payment-success-modal" tabindex="-1" aria-labelledby="paymentSuccessModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="paymentSuccessModalLabel">Pembayaran Berhasil</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <i class="fas fa-check-circle fa-5x text-success mb-3"></i>
+                <h5>Transaksi penjualan telah berhasil diproses!</h5>
+                <p>Faktur: <span id="success-invoice" class="fw-bold"></span></p>
+                <p>Total: <span id="success-total" class="fw-bold"></span></p>
+                <p>Kembalian: <span id="success-change" class="fw-bold"></span></p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a href="#" id="print-receipt" class="btn btn-outline-secondary" target="_blank">
+                    <i class="fas fa-print me-1"></i> Cetak Struk
+                </a>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Transaksi Baru</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+
+@section('scripts')
+<script>
+    $(document).ready(function() {
+        // Variables
+        let cartItems = [];
+        let taxRate = 0.1; // 10%
+        
+        // Format number with thousand separator
+        function formatNumber(number) {
+            return number.toFixed(0).replace(/\d(?=(\d{3})+$)/g, '$&.');
+        }
+        
+        // Calculate subtotal
+        function calculateSubtotal() {
+            let subtotal = 0;
+            cartItems.forEach(item => {
+                subtotal += item.quantity * item.price;
+            });
+            return subtotal;
+        }
+        
+        // Calculate tax
+        function calculateTax(subtotal) {
+            const discount = parseFloat($('#discount').val()) || 0;
+            return Math.round((subtotal - discount) * taxRate);
+        }
+        
+        // Calculate total
+        function calculateTotal() {
+            const subtotal = calculateSubtotal();
+            const discount = parseFloat($('#discount').val()) || 0;
+            const tax = calculateTax(subtotal);
+            return subtotal - discount + tax;
+        }
+        
+        // Update cart table
+        function updateCartTable() {
+            if (cartItems.length === 0) {
+                $('#empty-cart-row').show();
+            } else {
+                $('#empty-cart-row').hide();
+            }
+            
+            $('#cart-table tbody tr:not(#empty-cart-row)').remove();
+            
+            cartItems.forEach((item, index) => {
+                const row = `
+                    <tr>
+                        <td class="text-truncate" style="max-width: 120px;">${item.name}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm item-quantity" data-index="${index}" value="${item.quantity}" min="1" step="1">
+                        </td>
+                        <td class="text-end">Rp ${formatNumber(item.price)}</td>
+                        <td class="text-end">Rp ${formatNumber(item.quantity * item.price)}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-item" data-index="${index}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                
+                $('#cart-table tbody').append(row);
+            });
+            
+            updateTotals();
+        }
+        
+        // Update totals
+        function updateTotals() {
+            const subtotal = calculateSubtotal();
+            const discount = parseFloat($('#discount').val()) || 0;
+            const tax = calculateTax(subtotal);
+            const total = calculateTotal();
+            const paidAmount = parseFloat($('#paid-amount').val()) || 0;
+            const change = paidAmount - total > 0 ? paidAmount - total : 0;
+            
+            $('#subtotal').text("Rp " + formatNumber(subtotal));
+            $('#tax').text("Rp " + formatNumber(tax));
+            $('#total').text("Rp " + formatNumber(total));
+            $('#change').text("Rp " + formatNumber(change));
+        }
+        
+        // Filter products by category
+        $('.category-pill').click(function() {
+            const category = $(this).data('category');
+            $('.category-pill').removeClass('active');
+            $(this).addClass('active');
+            
+            if (category === 'all') {
+                $('.product-item').show();
+            } else {
+                $('.product-item').hide();
+                $('.product-item[data-category="' + category + '"]').show();
+            }
+        });
+        
+        // Search products
+        $('#search-product').on('input', function() {
+            const searchTerm = $(this).val().toLowerCase();
+            
+            if (searchTerm.length > 0) {
+                $('.product-item').hide();
+                $('.product-item').each(function() {
+                    const productName = $(this).data('name');
+                    const productCode = $(this).data('code');
+                    
+                    if (productName.includes(searchTerm) || productCode.includes(searchTerm)) {
+                        $(this).show();
+                    }
+                });
+            } else {
+                // If search is cleared, reapply category filter
+                const activeCategory = $('.category-pill.active').data('category');
+                if (activeCategory === 'all') {
+                    $('.product-item').show();
+                } else {
+                    $('.product-item').hide();
+                    $('.product-item[data-category="' + activeCategory + '"]').show();
+                }
+            }
+        });
+        
+        // Add product to cart
+        $(document).on('click', '.product-card', function() {
+            const productId = $(this).data('id');
+            const productName = $(this).data('name');
+            const productPrice = parseFloat($(this).data('price'));
+            const unitId = $(this).data('unit-id');
+            const unitName = $(this).data('unit-name');
+            
+            // Check if product already in cart
+            const existingItemIndex = cartItems.findIndex(item => item.product_id === productId);
+            
+            if (existingItemIndex > -1) {
+                // Increment quantity
+                cartItems[existingItemIndex].quantity += 1;
+            } else {
+                // Add new item
+                cartItems.push({
+                    product_id: productId,
+                    name: productName,
+                    price: productPrice,
+                    quantity: 1,
+                    unit_id: unitId,
+                    unit_name: unitName
+                });
+            }
+            
+            updateCartTable();
+        });
+        
+        // Update item quantity
+        $(document).on('change', '.item-quantity', function() {
+            const index = $(this).data('index');
+            const quantity = parseInt($(this).val()) || 1;
+            
+            if (quantity < 1) {
+                $(this).val(1);
+                cartItems[index].quantity = 1;
+            } else {
+                cartItems[index].quantity = quantity;
+            }
+            
+            updateCartTable();
+        });
+        
+        // Remove item from cart
+        $(document).on('click', '.remove-item', function() {
+            const index = $(this).data('index');
+            cartItems.splice(index, 1);
+            updateCartTable();
+        });
+        
+        // Clear cart
+        $('#clear-cart').click(function() {
+            if (cartItems.length > 0) {
+                Swal.fire({
+                    title: 'Kosongkan Keranjang?',
+                    text: "Semua produk akan dihapus dari keranjang",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Kosongkan!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        cartItems = [];
+                        updateCartTable();
+                    }
+                });
+            }
+        });
+        
+        // Update totals when discount changes
+        $('#discount').on('input', function() {
+            updateTotals();
+        });
+        
+        // Update change when paid amount changes
+        $('#paid-amount').on('input', function() {
+            updateTotals();
+        });
+        
+        // Process payment
+        $('#process-payment').click(function() {
+            if (cartItems.length === 0) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Keranjang Kosong',
+                    text: 'Silakan tambahkan produk ke keranjang terlebih dahulu'
+                });
+                return;
+            }
+            
+            const subtotal = calculateSubtotal();
+            const discount = parseFloat($('#discount').val()) || 0;
+            const tax = calculateTax(subtotal);
+            const total = calculateTotal();
+            const paidAmount = parseFloat($('#paid-amount').val()) || 0;
+            const paymentType = $('#payment-type').val();
+            const customerName = $('#customer-name').val();
+            
+            if (paidAmount < total && paymentType === 'tunai') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Pembayaran Kurang',
+                    text: 'Jumlah pembayaran tidak boleh kurang dari total untuk pembayaran tunai'
+                });
+                return;
+            }
+            
+            // Prepare data for submission
+            const data = {
+                store_id: {{ Auth::user()->store_id ?? 1 }}, // Default to 1 if store_id not set
+                payment_type: paymentType,
+                customer_name: customerName,
+                discount: discount,
+                tax: tax,
+                total_amount: total,
+                total_payment: paidAmount,
+                change: paidAmount - total > 0 ? paidAmount - total : 0,
+                items: cartItems.map(item => ({
+                    product_id: item.product_id,
+                    unit_id: item.unit_id,
+                    quantity: item.quantity,
+                    price: item.price,
+                    discount: 0, // Individual item discount not implemented in this UI
+                    subtotal: item.quantity * item.price
+                }))
+            };
+            
+            // Submit data to server
+            $.ajax({
+                url: "{{ route('pos.process') }}",
+                type: "POST",
+                data: {
+                    _token: "{{ csrf_token() }}",
+                    sale: data
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Show success modal
+                        $('#success-invoice').text(response.invoice_number);
+                        $('#success-total').text("Rp " + formatNumber(total));
+                        $('#success-change').text("Rp " + formatNumber(paidAmount - total > 0 ? paidAmount - total : 0));
+                        $('#print-receipt').attr('href', response.receipt_url);
+                        $('#payment-success-modal').modal('show');
+                        
+                        // Clear cart for new sale
+                        cartItems = [];
+                        updateCartTable();
+                        $('#discount').val(0);
+                        $('#paid-amount').val(0);
+                        $('#customer-name').val('');
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal',
+                            text: response.message || 'Terjadi kesalahan saat memproses penjualan'
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    let errorMessage = 'Terjadi kesalahan saat memproses penjualan.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: errorMessage
+                    });
+                }
+            });
+        });
+    });
+</script>
+@endsection

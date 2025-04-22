@@ -9,7 +9,14 @@ class PurchaseDetail extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['purchase_id', 'product_id', 'unit_id', 'quantity', 'price', 'subtotal'];
+    protected $fillable = [
+        'purchase_id',
+        'product_id',
+        'unit_id',
+        'quantity',
+        'price',
+        'subtotal'
+    ];
 
     public function purchase()
     {
@@ -24,5 +31,18 @@ class PurchaseDetail extends Model
     public function unit()
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    public function purchaseReturnDetails()
+    {
+        return $this->hasMany(PurchaseReturnDetail::class, 'purchase_detail_id');
+    }
+
+    /**
+     * Calculate total returned quantity for this purchase detail
+     */
+    public function returnedQuantity()
+    {
+        return $this->purchaseReturnDetails()->sum('quantity');
     }
 }

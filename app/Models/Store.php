@@ -40,4 +40,9 @@ class Store extends Model
     {
         return $this->hasMany(Expense::class);
     }
+
+    public function stocks()
+    {
+        return $this->hasMany(StockStore::class);
+    }
 }

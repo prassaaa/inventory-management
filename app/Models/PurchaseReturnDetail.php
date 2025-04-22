@@ -9,7 +9,15 @@ class PurchaseReturnDetail extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['purchase_return_id', 'product_id', 'unit_id', 'quantity', 'price', 'subtotal', 'reason'];
+    protected $fillable = [
+        'purchase_return_id',
+        'product_id',
+        'unit_id',
+        'quantity',
+        'price',
+        'subtotal',
+        'reason'
+    ];
 
     public function purchaseReturn()
     {
@@ -24,5 +32,10 @@ class PurchaseReturnDetail extends Model
     public function unit()
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    public function purchaseDetail()
+    {
+        return $this->belongsTo(PurchaseDetail::class);
     }
 }
