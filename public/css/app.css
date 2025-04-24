@@ -18,12 +18,17 @@ body {
     font-family: 'Nunito', sans-serif;
     background-color: var(--background-light);
     color: var(--text-dark);
+    overflow-x: hidden;
 }
 
 /* Wrapper */
 #wrapper {
     min-height: 100vh;
     transition: all 0.3s;
+    display: flex;
+    width: 100%;
+    position: relative;
+    overflow-x: hidden;
 }
 
 /* Sidebar */
@@ -39,6 +44,27 @@ body {
     transition: all 0.3s;
     background-color: #ffffff;
     overflow-y: auto;
+}
+
+/* Overlay untuk mobile sidebar */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    transition: opacity 0.3s;
+}
+
+/* Mobile header */
+.mobile-header {
+    display: none;
+    padding: 0.75rem 1rem;
+    background-color: white;
+    border-bottom: 1px solid var(--border-color);
 }
 
 /* Avatar section */
@@ -127,12 +153,12 @@ body {
 }
 
 #page-content-wrapper {
-    margin-left: 250px;
-    min-height: 100vh;
-    transition: all 0.3s;
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    width: calc(100% - 250px);
+    min-height: 100vh;
+    transition: all 0.3s;
 }
 
 /* Card styling */
@@ -436,40 +462,130 @@ footer {
     box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.02);
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
+/* Efek blur untuk content saat sidebar terbuka di mobile */
+body.sidebar-open #page-content-wrapper {
+    filter: blur(2px);
+    transition: filter 0.3s;
+}
+
+/* Membuat wrapper.toggled konsisten di semua ukuran layar */
+#wrapper.toggled #sidebar-wrapper {
+    margin-left: -250px;
+}
+
+/* Responsive Mobile */
+@media (max-width: 767.98px) {
+    /* Mobile sidebar styling */
     #sidebar-wrapper {
         margin-left: -250px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1050;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
     }
     
-    #wrapper.toggled #sidebar-wrapper {
+    /* Toggle logic untuk mobile */
+    #wrapper:not(.toggled) #sidebar-wrapper {
         margin-left: 0;
     }
     
+    /* Pastikan konten tidak bergeser */
     #page-content-wrapper {
+        width: 100%;
+        margin-left: 0;
+        padding-left: 0;
+    }
+    
+    /* Jangan geser konten saat sidebar terbuka */
+    #wrapper:not(.toggled) #page-content-wrapper {
         margin-left: 0;
         width: 100%;
     }
     
-    #wrapper.toggled #page-content-wrapper {
-        margin-left: 250px;
-        margin-right: -250px;
-    }
-    
-    .card-deck {
+    /* Tampilkan mobile header */
+    .mobile-header {
         display: block;
     }
     
-    .card-deck .card {
-        margin-bottom: 15px;
+    /* Tampilkan overlay saat sidebar terbuka */
+    body.sidebar-open .sidebar-overlay {
+        display: block;
+    }
+    
+    /* Membuat card menjadi lebih compact */
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    /* Fix untuk mengatasi padding container di mobile */
+    .container-fluid {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    
+    /* Buat menu scrollable */
+    .sidebar-menu-container {
+        max-height: calc(100vh - 180px);
+        overflow-y: auto;
+    }
+    
+    /* Buat tombol lebih mudah disentuh */
+    .list-group-item {
+        padding: 0.8rem 1.25rem;
+    }
+    
+    /* Buat submenu lebih mudah disentuh */
+    .collapse .list-group-item {
+        padding-top: 0.7rem;
+        padding-bottom: 0.7rem;
+    }
+    
+    /* Custom scrollbar untuk menu */
+    .sidebar-menu-container::-webkit-scrollbar {
+        width: 4px;
+    }
+    
+    /* Styling untuk item form agar lebih mudah disentuh */
+    .form-control, .form-select, .btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.95rem;
+    }
+    
+    /* Fix spacing pada form groups dan columns */
+    .row > [class^="col-"] {
+        margin-bottom: 1rem;
+    }
+    
+    /* Animasi untuk sidebar */
+    @keyframes slideIn {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(0); }
+    }
+    
+    #wrapper:not(.toggled) #sidebar-wrapper {
+        animation: slideIn 0.3s forwards;
     }
 }
 
-@media (min-width: 769px) {
-    #wrapper.toggled #sidebar-wrapper {
-        margin-left: -250px;
+/* Desktop */
+@media (min-width: 768px) {
+    /* Desktop layout */
+    #sidebar-wrapper {
+        margin-left: 0;
     }
     
+    #page-content-wrapper {
+        margin-left: 250px;
+        width: calc(100% - 250px);
+        flex: 1;
+    }
+    
+    /* Toggle logic untuk desktop */
     #wrapper.toggled #page-content-wrapper {
         margin-left: 0;
         width: 100%;
@@ -478,7 +594,7 @@ footer {
 
 /* Print styles */
 @media print {
-    #sidebar-wrapper, .no-print {
+    #sidebar-wrapper, .no-print, .mobile-header {
         display: none !important;
     }
     

@@ -2,17 +2,17 @@
     <!-- Header Sidebar dengan Logo -->
     <div class="sidebar-heading border-bottom bg-primary text-white p-3 d-flex align-items-center">
         <i class="fas fa-box-open me-2"></i>
-        <span class="fs-4 fw-bold">{{ config('app.name', 'Inventaris') }}</span>
+        <span class="fs-5 fw-bold">{{ config('app.name', 'Inventaris') }}</span>
     </div>
 
     <!-- Profile Section -->
-    <div class="px-3 py-4 d-flex align-items-center border-bottom">
+    <div class="px-3 py-3 d-flex align-items-center border-bottom">
         <div class="avatar-circle me-3 bg-primary">
             <span class="text-white">{{ substr(Auth::user()->name, 0, 1) }}</span>
         </div>
-        <div>
-            <h6 class="mb-0 fw-bold text-dark">{{ Auth::user()->name }}</h6>
-            <small class="text-muted">
+        <div class="overflow-hidden">
+            <h6 class="mb-0 fw-bold text-dark text-truncate">{{ Auth::user()->name }}</h6>
+            <small class="text-muted text-truncate d-block">
                 @foreach(Auth::user()->roles as $role)
                     {{ ucfirst($role->name) }}
                 @endforeach
@@ -20,8 +20,8 @@
         </div>
     </div>
 
-    <!-- Menu Section -->
-    <div class="list-group list-group-flush pt-2">
+    <!-- Menu Section with Scroll -->
+    <div class="list-group list-group-flush pt-2 sidebar-menu-container">
         <a href="{{ route('dashboard') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('dashboard') ? 'active-menu' : '' }}">
             <div class="d-flex align-items-center">
                 <span class="icon-wrapper me-3">
@@ -212,7 +212,7 @@
                     <span class="icon-wrapper me-3">
                         <i class="fas fa-cogs text-primary"></i>
                     </span>
-                    <span>Manajemen Sistem</span>
+                    <span>Manajemen</span>
                 </div>
                 <i class="fas {{ (request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*')) ? 'fa-angle-down' : 'fa-angle-right' }}"></i>
             </div>
@@ -269,7 +269,7 @@
     </div>
 
     <!-- Footer Section -->
-    <div class="mt-auto text-center border-top p-3">
+    <div class="mt-auto text-center border-top p-3 d-none d-md-block">
         <small class="text-muted">© {{ date('Y') }} {{ config('app.name', 'Inventaris') }}</small>
     </div>
 </div>
