@@ -71,6 +71,12 @@ class ProductController extends Controller
             $validated['selling_price'] = $request->selling_price_real;
         }
 
+        // Convert min_stock to integer if it's actually a whole number
+        $minStock = floatval($validated['min_stock']);
+        if (floor($minStock) == $minStock) {
+            $validated['min_stock'] = intval($minStock);
+        }
+
         // Generate product code if not provided
         if (empty($validated['code'])) {
             $latestProduct = Product::latest()->first();
@@ -195,6 +201,12 @@ class ProductController extends Controller
         
         if ($request->has('selling_price_real')) {
             $validated['selling_price'] = $request->selling_price_real;
+        }
+        
+        // Convert min_stock to integer if it's actually a whole number
+        $minStock = floatval($validated['min_stock']);
+        if (floor($minStock) == $minStock) {
+            $validated['min_stock'] = intval($minStock);
         }
 
         // Handle image upload

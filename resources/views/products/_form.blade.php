@@ -77,7 +77,8 @@
 
         <div class="form-group mb-3">
             <label for="min_stock" class="form-label">Stok Minimum <span class="text-danger">*</span></label>
-            <input type="number" step="0.01" class="form-control @error('min_stock') is-invalid @enderror" id="min_stock" name="min_stock" value="{{ old('min_stock', $product->min_stock ?? '0') }}" required>
+            <input type="text" class="form-control number-format @error('min_stock') is-invalid @enderror" id="min_stock" name="min_stock" 
+                   value="{{ old('min_stock', isset($product) ? (floor($product->min_stock) == $product->min_stock ? number_format($product->min_stock, 0, ',', '.') : number_format($product->min_stock, 0, ',', '.')) : '0') }}" required>
             @error('min_stock')
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
@@ -286,7 +287,7 @@
             
             if (targetName.includes('additional_units')) {
                 var realFieldName = targetName.replace('purchase_price', 'purchase_price_real')
-                                            .replace('selling_price', 'selling_price_real');
+                                           .replace('selling_price', 'selling_price_real');
                 $('input[name="' + realFieldName + '"]').val(numericValue || 0);
             } else {
                 var hiddenFieldId = $(this).attr('id') + '_real';
@@ -294,18 +295,49 @@
             }
         });
         
+        // Format min_stock number
+        $('#min_stock').each(function() {
+            var value = $(this).val();
+            if (value && value !== '0') {
+                // Format nilai dengan pemisah ribuan jika belum diformat
+                if (!value.includes('.')) {
+                    value = parseInt(value).toLocaleString('id-ID');
+                    $(this).val(value);
+                }
+            }
+        });
+        
+        // Handle input for min_stock field
+        $('#min_stock').on('input', function() {
+            var value = $(this).val();
+            // Hapus semua karakter non-numerik
+            value = value.replace(/[^\d]/g, '');
+            
+            // Format dengan pemisah ribuan
+            if (value !== '') {
+                value = parseInt(value).toLocaleString('id-ID');
+            }
+            
+            // Update tampilan
+            $(this).val(value);
+        });
+        
         // Add unit row
         $('#add-unit').click(function() {
             var index = $('.unit-row').length;
+            var unitOptions = '';
+            
+            // Dapatkan opsi unit dari select unit pertama jika ada
+            if ($('.unit-row:first select').length) {
+                unitOptions = $('.unit-row:first select').html();
+            }
+            
             var newRow = `
                 <div class="row mb-3 unit-row align-items-center">
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Satuan</label>
                         <select class="form-select select2-new" name="additional_units[${index}][unit_id]">
-                            <option value="">Pilih Satuan</option>
-                            @foreach($units as $unit)
-                                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                            @endforeach
+                            ${unitOptions}
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -377,13 +409,18 @@
                 
                 if (targetName.includes('additional_units')) {
                     var realFieldName = targetName.replace('purchase_price', 'purchase_price_real')
-                                                .replace('selling_price', 'selling_price_real');
+                                               .replace('selling_price', 'selling_price_real');
                     $('input[name="' + realFieldName + '"]').val(value || 0);
                 } else {
                     var hiddenFieldId = $(this).attr('id') + '_real';
                     $('#' + hiddenFieldId).val(value || 0);
                 }
             });
+            
+            // Handle min_stock field before submit
+            var minStock = $('#min_stock').val();
+            // Hapus pemisah ribuan sebelum dikirim ke server
+            $('#min_stock').val(minStock.replace(/\./g, ''));
         });
     });
 </script>
