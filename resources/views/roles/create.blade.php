@@ -1,38 +1,46 @@
 @extends('layouts.app')
 
-@section('title', 'Create Role')
+@section('title', 'Tambah Peran')
 
 @section('content')
 <div class="container-fluid">
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Create Role</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-dark fw-bold">
+                <i class="fas fa-plus-circle me-2 text-primary"></i> Tambah Peran
+            </h1>
+            <p class="text-muted">Buat peran baru dengan izin khusus</p>
+        </div>
         <a href="{{ route('roles.index') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Roles
+            <i class="fas fa-arrow-left me-1"></i> Kembali
         </a>
     </div>
 
     <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 fw-bold text-primary">Form Peran</h6>
+        </div>
         <div class="card-body">
             <form action="{{ route('roles.store') }}" method="POST">
                 @csrf
-                <div class="form-group">
-                    <label for="name">Role Name</label>
+                <div class="form-group mb-3">
+                    <label for="name" class="form-label">Nama Peran</label>
                     <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name') }}">
                     @error('name')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
                 
-                <div class="form-group">
-                    <label>Permissions</label>
+                <div class="form-group mb-3">
+                    <label class="form-label">Izin</label>
                     
                     @foreach($permissionGroups as $group => $permissions)
                         <div class="card mb-3">
                             <div class="card-header bg-light">
-                                <div class="custom-control custom-checkbox">
-                                    <input type="checkbox" class="custom-control-input group-checkbox" id="group_{{ $group }}">
-                                    <label class="custom-control-label font-weight-bold" for="group_{{ $group }}">
-                                        {{ ucfirst($group) }} Permissions
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input group-checkbox" id="group_{{ $group }}">
+                                    <label class="form-check-label fw-bold" for="group_{{ $group }}">
+                                        {{ ucfirst($group) }}
                                     </label>
                                 </div>
                             </div>
@@ -40,14 +48,14 @@
                                 <div class="row">
                                     @foreach($permissions as $permission)
                                         <div class="col-md-3 mb-2">
-                                            <div class="custom-control custom-checkbox">
-                                                <input type="checkbox" class="custom-control-input permission-checkbox" 
+                                            <div class="form-check">
+                                                <input type="checkbox" class="form-check-input permission-checkbox" 
                                                     name="permissions[]" 
                                                     id="permission_{{ $permission->id }}" 
                                                     value="{{ $permission->id }}"
                                                     data-group="{{ $group }}"
                                                     {{ in_array($permission->id, old('permissions', [])) ? 'checked' : '' }}>
-                                                <label class="custom-control-label" for="permission_{{ $permission->id }}">
+                                                <label class="form-check-label" for="permission_{{ $permission->id }}">
                                                     {{ $permission->name }}
                                                 </label>
                                             </div>
@@ -60,7 +68,7 @@
                 </div>
                 
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Save Role
+                    <i class="fas fa-save me-1"></i> Simpan
                 </button>
             </form>
         </div>

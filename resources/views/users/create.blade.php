@@ -1,53 +1,61 @@
 @extends('layouts.app')
 
-@section('title', 'Create User')
+@section('title', 'Tambah Pengguna')
 
 @section('content')
 <div class="container-fluid">
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Create User</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-dark fw-bold">
+                <i class="fas fa-user-plus me-2 text-primary"></i> Tambah Pengguna
+            </h1>
+            <p class="text-muted">Buat akun pengguna baru untuk sistem</p>
+        </div>
         <a href="{{ route('users.index') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Users
+            <i class="fas fa-arrow-left me-1"></i> Kembali
         </a>
     </div>
 
     <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 fw-bold text-primary">Form Pengguna</h6>
+        </div>
         <div class="card-body">
             <form action="{{ route('users.store') }}" method="POST">
                 @csrf
-                <div class="form-group">
-                    <label for="name">Name</label>
+                <div class="form-group mb-3">
+                    <label for="name" class="form-label">Nama</label>
                     <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name') }}">
                     @error('name')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
                 
-                <div class="form-group">
-                    <label for="email">Email</label>
+                <div class="form-group mb-3">
+                    <label for="email" class="form-label">Email</label>
                     <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email') }}">
                     @error('email')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
                 
-                <div class="form-group">
-                    <label for="password">Password</label>
+                <div class="form-group mb-3">
+                    <label for="password" class="form-label">Kata Sandi</label>
                     <input type="password" class="form-control @error('password') is-invalid @enderror" id="password" name="password">
                     @error('password')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
                 
-                <div class="form-group">
-                    <label for="password_confirmation">Confirm Password</label>
+                <div class="form-group mb-3">
+                    <label for="password_confirmation" class="form-label">Konfirmasi Kata Sandi</label>
                     <input type="password" class="form-control" id="password_confirmation" name="password_confirmation">
                 </div>
                 
-                <div class="form-group">
-                    <label for="role">Role</label>
-                    <select class="form-control @error('role') is-invalid @enderror" id="role" name="role">
-                        <option value="">Select Role</option>
+                <div class="form-group mb-3">
+                    <label for="role" class="form-label">Peran</label>
+                    <select class="form-select @error('role') is-invalid @enderror" id="role" name="role">
+                        <option value="">Pilih Peran</option>
                         @foreach($roles as $role)
                             <option value="{{ $role->name }}" {{ old('role') == $role->name ? 'selected' : '' }}>
                                 {{ ucfirst($role->name) }}
@@ -59,21 +67,21 @@
                     @enderror
                 </div>
                 
-                <div class="form-group">
-                    <label for="store_id">Store</label>
-                    <select class="form-control" id="store_id" name="store_id">
-                        <option value="">No Store (Central Office)</option>
+                <div class="form-group mb-3">
+                    <label for="store_id" class="form-label">Lokasi</label>
+                    <select class="form-select" id="store_id" name="store_id">
+                        <option value="">Kantor Pusat (Tidak ada Lokasi)</option>
                         @foreach($stores as $store)
                             <option value="{{ $store->id }}" {{ old('store_id') == $store->id ? 'selected' : '' }}>
                                 {{ $store->name }}
                             </option>
                         @endforeach
                     </select>
-                    <small class="text-muted">Assign a store for store-level roles (e.g. admin_store, kasir)</small>
+                    <small class="text-muted">Tetapkan lokasi untuk peran tingkat toko (misalnya admin_store, kasir)</small>
                 </div>
                 
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Save User
+                    <i class="fas fa-save me-1"></i> Simpan
                 </button>
             </form>
         </div>

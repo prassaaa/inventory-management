@@ -39,7 +39,9 @@ class RoleController extends Controller
         $role = Role::create(['name' => $request->name]);
         
         if ($request->has('permissions')) {
-            $role->syncPermissions($request->permissions);
+            // Gunakan metode yang lebih aman
+            $permissions = Permission::whereIn('id', $request->permissions)->get();
+            $role->syncPermissions($permissions);
         }
 
         return redirect()->route('roles.index')
@@ -79,7 +81,9 @@ class RoleController extends Controller
         $role->update(['name' => $request->name]);
         
         if ($request->has('permissions')) {
-            $role->syncPermissions($request->permissions);
+            // Gunakan metode yang lebih aman
+            $permissions = Permission::whereIn('id', $request->permissions)->get();
+            $role->syncPermissions($permissions);
         } else {
             $role->permissions()->detach();
         }
