@@ -23,7 +23,7 @@ class ProductController extends Controller
      */
     public function index()
     {
-        $products = Product::with(['category', 'baseUnit', 'warehouseStock'])->orderBy('name')->get();
+        $products = Product::with(['category', 'baseUnit', 'stockWarehouses'])->orderBy('name')->get();
         return view('products.index', compact('products'));
     }
 
@@ -62,6 +62,15 @@ class ProductController extends Controller
             'additional_units.*.selling_price' => 'nullable|numeric|min:0',
         ]);
 
+        // Handle input with currency format
+        if ($request->has('purchase_price_real')) {
+            $validated['purchase_price'] = $request->purchase_price_real;
+        }
+        
+        if ($request->has('selling_price_real')) {
+            $validated['selling_price'] = $request->selling_price_real;
+        }
+
         // Generate product code if not provided
         if (empty($validated['code'])) {
             $latestProduct = Product::latest()->first();
@@ -95,12 +104,21 @@ class ProductController extends Controller
         if (isset($validated['additional_units'])) {
             foreach ($validated['additional_units'] as $unitData) {
                 if (!empty($unitData['unit_id']) && !empty($unitData['conversion_value'])) {
+                    // Handle input with currency format for additional units
+                    $purchasePrice = isset($unitData['purchase_price_real']) ? 
+                                    $unitData['purchase_price_real'] : 
+                                    ($unitData['purchase_price'] ?? 0);
+                    
+                    $sellingPrice = isset($unitData['selling_price_real']) ? 
+                                    $unitData['selling_price_real'] : 
+                                    ($unitData['selling_price'] ?? 0);
+                    
                     ProductUnit::create([
                         'product_id' => $product->id,
                         'unit_id' => $unitData['unit_id'],
                         'conversion_value' => $unitData['conversion_value'],
-                        'purchase_price' => $unitData['purchase_price'] ?? 0,
-                        'selling_price' => $unitData['selling_price'] ?? 0,
+                        'purchase_price' => $purchasePrice,
+                        'selling_price' => $sellingPrice,
                     ]);
                 }
             }
@@ -115,7 +133,7 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
-        $product->load(['category', 'baseUnit', 'productUnits.unit', 'warehouseStock', 'storeStocks.store']);
+        $product->load(['category', 'baseUnit', 'productUnits.unit', 'stockWarehouses', 'storeStocks.store']);
         
         // Get recent purchase details
         $recentPurchases = PurchaseDetail::with(['purchase.supplier', 'unit'])
@@ -170,6 +188,15 @@ class ProductController extends Controller
             'additional_units.*.selling_price' => 'nullable|numeric|min:0',
         ]);
 
+        // Handle input with currency format
+        if ($request->has('purchase_price_real')) {
+            $validated['purchase_price'] = $request->purchase_price_real;
+        }
+        
+        if ($request->has('selling_price_real')) {
+            $validated['selling_price'] = $request->selling_price_real;
+        }
+
         // Handle image upload
         if ($request->hasFile('image')) {
             // Delete old image if exists
@@ -193,12 +220,21 @@ class ProductController extends Controller
             // Create new product units
             foreach ($validated['additional_units'] as $unitData) {
                 if (!empty($unitData['unit_id']) && !empty($unitData['conversion_value'])) {
+                    // Handle input with currency format for additional units
+                    $purchasePrice = isset($unitData['purchase_price_real']) ? 
+                                    $unitData['purchase_price_real'] : 
+                                    ($unitData['purchase_price'] ?? 0);
+                    
+                    $sellingPrice = isset($unitData['selling_price_real']) ? 
+                                    $unitData['selling_price_real'] : 
+                                    ($unitData['selling_price'] ?? 0);
+                    
                     ProductUnit::create([
                         'product_id' => $product->id,
                         'unit_id' => $unitData['unit_id'],
                         'conversion_value' => $unitData['conversion_value'],
-                        'purchase_price' => $unitData['purchase_price'] ?? 0,
-                        'selling_price' => $unitData['selling_price'] ?? 0,
+                        'purchase_price' => $purchasePrice,
+                        'selling_price' => $sellingPrice,
                     ]);
                 }
             }

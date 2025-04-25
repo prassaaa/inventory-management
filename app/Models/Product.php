@@ -34,7 +34,17 @@ class Product extends Model
         return $this->hasMany(StockWarehouse::class);
     }
 
+    public function warehouseStock()
+    {
+        return $this->hasOne(StockWarehouse::class);
+    }
+
     public function stockStores()
+    {
+        return $this->hasMany(StockStore::class);
+    }
+
+    public function storeStocks()
     {
         return $this->hasMany(StockStore::class);
     }

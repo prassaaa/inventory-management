@@ -164,11 +164,16 @@
                                     <div class="d-flex justify-content-between">
                                         <div>
                                             <p class="text-muted mb-1">Stok Gudang</p>
-                                            <h4 class="mb-0 fw-bold {{ $product->warehouseStock && $product->warehouseStock->quantity < $product->min_stock ? 'text-danger' : 'text-dark' }}">
-                                                {{ $product->warehouseStock ? $product->warehouseStock->quantity : 0 }} 
+                                            <h4 class="mb-0 fw-bold {{ $product->stockWarehouses->first() && $product->stockWarehouses->first()->quantity < $product->min_stock ? 'text-danger' : 'text-dark' }}">
+                                                @php
+                                                    $wareStock = $product->stockWarehouses->first();
+                                                    $stockQty = $wareStock ? floatval($wareStock->quantity) : 0;
+                                                    $formattedStock = (floor($stockQty) == $stockQty) ? number_format($stockQty, 0, ',', '.') : number_format($stockQty, 2, ',', '.');
+                                                @endphp
+                                                {{ $formattedStock }} 
                                                 <small>{{ $product->baseUnit->name }}</small>
                                             </h4>
-                                            @if($product->warehouseStock && $product->warehouseStock->quantity < $product->min_stock)
+                                            @if($product->stockWarehouses->first() && $product->stockWarehouses->first()->quantity < $product->min_stock)
                                                 <span class="badge bg-danger-light text-danger mt-1">Stok Rendah</span>
                                             @endif
                                         </div>
@@ -186,7 +191,11 @@
                                         <div>
                                             <p class="text-muted mb-1">Minimum Stok</p>
                                             <h4 class="mb-0 fw-bold text-dark">
-                                                {{ $product->min_stock }} 
+                                                @php
+                                                    $minStock = floatval($product->min_stock);
+                                                    $formattedMinStock = (floor($minStock) == $minStock) ? number_format($minStock, 0, ',', '.') : number_format($minStock, 2, ',', '.');
+                                                @endphp
+                                                {{ $formattedMinStock }}
                                                 <small>{{ $product->baseUnit->name }}</small>
                                             </h4>
                                         </div>
@@ -213,7 +222,13 @@
                                 @forelse($product->storeStocks as $storeStock)
                                 <tr>
                                     <td>{{ $storeStock->store->name }}</td>
-                                    <td>{{ $storeStock->quantity }} {{ $product->baseUnit->name }}</td>
+                                    <td>
+                                        @php
+                                            $storeQty = floatval($storeStock->quantity);
+                                            $formattedStoreQty = (floor($storeQty) == $storeQty) ? number_format($storeQty, 0, ',', '.') : number_format($storeQty, 2, ',', '.');
+                                        @endphp
+                                        {{ $formattedStoreQty }} {{ $product->baseUnit->name }}
+                                    </td>
                                     <td>
                                         @if($storeStock->quantity < $product->min_stock)
                                             <span class="badge bg-danger-light text-danger">Stok Rendah</span>
@@ -284,7 +299,7 @@
                                 </div>
                             @else
                                 <div class="text-center py-4">
-                                    <img src="{{ asset('img/no-data.svg') }}" alt="No Data" style="height: 120px;" class="mb-3">
+                                    <i class="fas fa-shopping-basket fa-4x text-muted mb-3"></i>
                                     <p class="text-muted">Belum ada riwayat pembelian.</p>
                                 </div>
                             @endif
@@ -321,7 +336,7 @@
                                 </div>
                             @else
                                 <div class="text-center py-4">
-                                    <img src="{{ asset('img/no-data.svg') }}" alt="No Data" style="height: 120px;" class="mb-3">
+                                    <i class="fas fa-cash-register fa-4x text-muted mb-3"></i>
                                     <p class="text-muted">Belum ada riwayat penjualan.</p>
                                 </div>
                             @endif

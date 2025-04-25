@@ -55,7 +55,8 @@
             <label for="purchase_price" class="form-label">Harga Beli <span class="text-danger">*</span></label>
             <div class="input-group">
                 <span class="input-group-text">Rp</span>
-                <input type="number" step="0.01" class="form-control @error('purchase_price') is-invalid @enderror" id="purchase_price" name="purchase_price" value="{{ old('purchase_price', $product->purchase_price ?? '0') }}" required>
+                <input type="text" class="form-control money-format @error('purchase_price') is-invalid @enderror" id="purchase_price" name="purchase_price" value="{{ old('purchase_price', isset($product) ? number_format($product->purchase_price, 0, ',', '.') : '0') }}" required>
+                <input type="hidden" name="purchase_price_real" id="purchase_price_real" value="{{ old('purchase_price_real', $product->purchase_price ?? '0') }}">
             </div>
             @error('purchase_price')
                 <div class="invalid-feedback">{{ $message }}</div>
@@ -66,7 +67,8 @@
             <label for="selling_price" class="form-label">Harga Jual <span class="text-danger">*</span></label>
             <div class="input-group">
                 <span class="input-group-text">Rp</span>
-                <input type="number" step="0.01" class="form-control @error('selling_price') is-invalid @enderror" id="selling_price" name="selling_price" value="{{ old('selling_price', $product->selling_price ?? '0') }}" required>
+                <input type="text" class="form-control money-format @error('selling_price') is-invalid @enderror" id="selling_price" name="selling_price" value="{{ old('selling_price', isset($product) ? number_format($product->selling_price, 0, ',', '.') : '0') }}" required>
+                <input type="hidden" name="selling_price_real" id="selling_price_real" value="{{ old('selling_price_real', $product->selling_price ?? '0') }}">
             </div>
             @error('selling_price')
                 <div class="invalid-feedback">{{ $message }}</div>
@@ -160,16 +162,18 @@
                         <label class="form-label d-block d-md-none">Harga Beli</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="number" step="0.01" class="form-control" name="additional_units[{{ $index }}][purchase_price]" 
-                                placeholder="Harga Beli" value="{{ $productUnit->purchase_price }}">
+                            <input type="text" class="form-control money-format" name="additional_units[{{ $index }}][purchase_price]" 
+                                placeholder="Harga Beli" value="{{ number_format($productUnit->purchase_price, 0, ',', '.') }}">
+                            <input type="hidden" name="additional_units[{{ $index }}][purchase_price_real]" value="{{ $productUnit->purchase_price }}">
                         </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label d-block d-md-none">Harga Jual</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="number" step="0.01" class="form-control" name="additional_units[{{ $index }}][selling_price]" 
-                                placeholder="Harga Jual" value="{{ $productUnit->selling_price }}">
+                            <input type="text" class="form-control money-format" name="additional_units[{{ $index }}][selling_price]" 
+                                placeholder="Harga Jual" value="{{ number_format($productUnit->selling_price, 0, ',', '.') }}">
+                            <input type="hidden" name="additional_units[{{ $index }}][selling_price_real]" value="{{ $productUnit->selling_price }}">
                         </div>
                     </div>
                     <div class="col-md-2">
@@ -203,16 +207,18 @@
                     <label class="form-label d-block d-md-none">Harga Beli</label>
                     <div class="input-group">
                         <span class="input-group-text">Rp</span>
-                        <input type="number" step="0.01" class="form-control" name="additional_units[0][purchase_price]" 
-                            placeholder="Harga Beli">
+                        <input type="text" class="form-control money-format" name="additional_units[0][purchase_price]" 
+                            placeholder="Harga Beli" value="0">
+                        <input type="hidden" name="additional_units[0][purchase_price_real]" value="0">
                     </div>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label d-block d-md-none">Harga Jual</label>
                     <div class="input-group">
                         <span class="input-group-text">Rp</span>
-                        <input type="number" step="0.01" class="form-control" name="additional_units[0][selling_price]" 
-                            placeholder="Harga Jual">
+                        <input type="text" class="form-control money-format" name="additional_units[0][selling_price]" 
+                            placeholder="Harga Jual" value="0">
+                        <input type="hidden" name="additional_units[0][selling_price_real]" value="0">
                     </div>
                 </div>
                 <div class="col-md-2">
@@ -249,6 +255,45 @@
             width: '100%'
         });
         
+        // Format currency input (Rupiah)
+        function formatRupiah(value) {
+            // Hapus semua karakter non-numerik
+            value = value.replace(/[^\d]/g, '');
+            
+            // Format dengan pemisah ribuan
+            if (value !== '') {
+                return parseInt(value).toLocaleString('id-ID');
+            }
+            return value;
+        }
+        
+        // Initialize money format for existing inputs
+        $('.money-format').each(function() {
+            var value = $(this).val();
+            var formattedValue = formatRupiah(value);
+            $(this).val(formattedValue);
+        });
+        
+        // Handle input for money-format fields
+        $(document).on('input', '.money-format', function() {
+            var value = $(this).val();
+            var formattedValue = formatRupiah(value);
+            $(this).val(formattedValue);
+            
+            // Update the hidden field with the actual numeric value
+            var numericValue = value.replace(/\./g, '');
+            var targetName = $(this).attr('name');
+            
+            if (targetName.includes('additional_units')) {
+                var realFieldName = targetName.replace('purchase_price', 'purchase_price_real')
+                                            .replace('selling_price', 'selling_price_real');
+                $('input[name="' + realFieldName + '"]').val(numericValue || 0);
+            } else {
+                var hiddenFieldId = $(this).attr('id') + '_real';
+                $('#' + hiddenFieldId).val(numericValue || 0);
+            }
+        });
+        
         // Add unit row
         $('#add-unit').click(function() {
             var index = $('.unit-row').length;
@@ -275,16 +320,18 @@
                         <label class="form-label d-block d-md-none">Harga Beli</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="number" step="0.01" class="form-control" name="additional_units[${index}][purchase_price]" 
-                                placeholder="Harga Beli">
+                            <input type="text" class="form-control money-format" name="additional_units[${index}][purchase_price]" 
+                                placeholder="Harga Beli" value="0">
+                            <input type="hidden" name="additional_units[${index}][purchase_price_real]" value="0">
                         </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label d-block d-md-none">Harga Jual</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="number" step="0.01" class="form-control" name="additional_units[${index}][selling_price]" 
-                                placeholder="Harga Jual">
+                            <input type="text" class="form-control money-format" name="additional_units[${index}][selling_price]" 
+                                placeholder="Harga Jual" value="0">
+                            <input type="hidden" name="additional_units[${index}][selling_price_real]" value="0">
                         </div>
                     </div>
                     <div class="col-md-2">
@@ -310,12 +357,33 @@
 
         // Auto-calculate selling price with markup (for example: 20% markup)
         $('#purchase_price').on('input', function() {
-            if (!$('#selling_price').val() || $('#selling_price').val() == 0) {
-                var purchasePrice = parseFloat($(this).val()) || 0;
+            var purchaseValue = $('#purchase_price_real').val() || 0;
+            if (!$('#selling_price').val() || $('#selling_price_real').val() == 0) {
+                var purchasePrice = parseFloat(purchaseValue) || 0;
                 var markup = 0.2; // 20% markup
                 var sellingPrice = purchasePrice * (1 + markup);
-                $('#selling_price').val(sellingPrice.toFixed(2));
+                
+                // Update selling price and its hidden field
+                $('#selling_price').val(formatRupiah(sellingPrice.toString()));
+                $('#selling_price_real').val(sellingPrice);
             }
+        });
+        
+        // Form submission - ensure hidden fields are updated
+        $('form').on('submit', function() {
+            $('.money-format').each(function() {
+                var value = $(this).val().replace(/\./g, '');
+                var targetName = $(this).attr('name');
+                
+                if (targetName.includes('additional_units')) {
+                    var realFieldName = targetName.replace('purchase_price', 'purchase_price_real')
+                                                .replace('selling_price', 'selling_price_real');
+                    $('input[name="' + realFieldName + '"]').val(value || 0);
+                } else {
+                    var hiddenFieldId = $(this).attr('id') + '_real';
+                    $('#' + hiddenFieldId).val(value || 0);
+                }
+            });
         });
     });
 </script>
