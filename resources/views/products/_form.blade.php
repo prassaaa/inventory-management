@@ -129,6 +129,120 @@
     @enderror
 </div>
 
+<div class="form-group mb-3">
+    <label for="store_source">Sumber Produk</label>
+    <select class="form-select @error('store_source') is-invalid @enderror" id="store_source" name="store_source">
+        <option value="pusat" {{ old('store_source', $product->store_source ?? 'pusat') == 'pusat' ? 'selected' : '' }}>Pusat</option>
+        <option value="store" {{ old('store_source', $product->store_source ?? '') == 'store' ? 'selected' : '' }}>Store</option>
+    </select>
+    @error('store_source')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
+
+<div class="form-group mb-3" id="store-selection" style="{{ old('store_source', $product->store_source ?? 'pusat') == 'store' ? '' : 'display: none;' }}">
+    <label for="store_id">Store</label>
+    <select class="form-select select2 @error('store_id') is-invalid @enderror" id="store_id" name="store_id">
+        <option value="">Pilih Store</option>
+        @foreach($stores as $store)
+            <option value="{{ $store->id }}" {{ old('store_id', $product->store_id ?? '') == $store->id ? 'selected' : '' }}>{{ $store->name }}</option>
+        @endforeach
+    </select>
+    @error('store_id')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
+
+<div class="form-check mb-3" id="is-processed-group" style="{{ old('store_source', $product->store_source ?? 'pusat') == 'store' ? '' : 'display: none;' }}">
+    <input class="form-check-input" type="checkbox" id="is_processed" name="is_processed" value="1" {{ old('is_processed', $product->is_processed ?? false) ? 'checked' : '' }}>
+    <label class="form-check-label" for="is_processed">
+        Produk Olahan
+    </label>
+    <small class="form-text text-muted">Centang jika produk ini adalah olahan dari bahan-bahan yang dibeli dari pusat</small>
+</div>
+
+<div id="ingredients-section" style="{{ old('is_processed', $product->is_processed ?? false) ? '' : 'display: none;' }}">
+    <div class="card mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center bg-light">
+            <h6 class="m-0 fw-bold text-primary">Bahan-bahan Produk</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="add-ingredient">
+                <i class="fas fa-plus me-1"></i> Tambah Bahan
+            </button>
+        </div>
+        <div class="card-body" id="ingredients-container">
+            @if(isset($product) && $product->ingredients->count() > 0)
+                @foreach($product->ingredients as $index => $ingredient)
+                    <div class="row mb-3 ingredient-row align-items-center">
+                        <div class="col-md-5">
+                            <label class="form-label d-block d-md-none">Bahan</label>
+                            <select class="form-select select2" name="ingredients[{{ $index }}][ingredient_id]" required>
+                                <option value="">Pilih Bahan</option>
+                                @foreach($centralProducts as $centralProduct)
+                                    <option value="{{ $centralProduct->id }}" {{ $ingredient->id == $centralProduct->id ? 'selected' : '' }}>
+                                        {{ $centralProduct->name }} ({{ $centralProduct->baseUnit->name }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label d-block d-md-none">Jumlah</label>
+                            <input type="number" class="form-control" name="ingredients[{{ $index }}][quantity]" placeholder="Jumlah" value="{{ $ingredient->pivot->quantity }}" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label d-block d-md-none">Satuan</label>
+                            <select class="form-select" name="ingredients[{{ $index }}][unit_id]" required>
+                                @foreach($units as $unit)
+                                    <option value="{{ $unit->id }}" {{ $ingredient->pivot->unit_id == $unit->id ? 'selected' : '' }}>
+                                        {{ $unit->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label d-block d-md-none">&nbsp;</label>
+                            <button type="button" class="btn btn-outline-danger remove-ingredient">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                @endforeach
+            @else
+                <div class="row mb-3 ingredient-row align-items-center">
+                    <div class="col-md-5">
+                        <label class="form-label d-block d-md-none">Bahan</label>
+                        <select class="form-select select2" name="ingredients[0][ingredient_id]" required>
+                            <option value="">Pilih Bahan</option>
+                            @foreach($centralProducts as $centralProduct)
+                                <option value="{{ $centralProduct->id }}">
+                                    {{ $centralProduct->name }} ({{ $centralProduct->baseUnit->name }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label d-block d-md-none">Jumlah</label>
+                        <input type="number" class="form-control" name="ingredients[0][quantity]" placeholder="Jumlah" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label d-block d-md-none">Satuan</label>
+                        <select class="form-select" name="ingredients[0][unit_id]" required>
+                            @foreach($units as $unit)
+                                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label d-block d-md-none">&nbsp;</label>
+                        <button type="button" class="btn btn-outline-danger remove-ingredient">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+
 <div class="card mb-4">
     <div class="card-header py-3 d-flex justify-content-between align-items-center bg-light">
         <h6 class="m-0 fw-bold text-primary">Satuan Tambahan</h6>
@@ -322,6 +436,77 @@
             $(this).val(value);
         });
         
+        // Toggle store selection
+        $('#store_source').change(function() {
+            if ($(this).val() === 'store') {
+                $('#store-selection').show();
+                $('#is-processed-group').show();
+            } else {
+                $('#store-selection').hide();
+                $('#is-processed-group').hide();
+                $('#is_processed').prop('checked', false);
+                $('#ingredients-section').hide();
+            }
+        });
+        
+        // Toggle ingredients section
+        $('#is_processed').change(function() {
+            if ($(this).is(':checked')) {
+                $('#ingredients-section').show();
+            } else {
+                $('#ingredients-section').hide();
+            }
+        });
+        
+        // Add ingredient row
+        $('#add-ingredient').click(function() {
+            var index = $('.ingredient-row').length;
+            var newRow = `
+                <div class="row mb-3 ingredient-row align-items-center">
+                    <div class="col-md-5">
+                        <label class="form-label d-block d-md-none">Bahan</label>
+                        <select class="form-select select2-new" name="ingredients[${index}][ingredient_id]" required>
+                            <option value="">Pilih Bahan</option>
+                            @foreach($centralProducts as $centralProduct)
+                                <option value="{{ $centralProduct->id }}">
+                                    {{ $centralProduct->name }} ({{ $centralProduct->baseUnit->name }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label d-block d-md-none">Jumlah</label>
+                        <input type="number" class="form-control" name="ingredients[${index}][quantity]" placeholder="Jumlah" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label d-block d-md-none">Satuan</label>
+                        <select class="form-select" name="ingredients[${index}][unit_id]" required>
+                            @foreach($units as $unit)
+                                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label d-block d-md-none">&nbsp;</label>
+                        <button type="button" class="btn btn-outline-danger remove-ingredient">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            $('#ingredients-container').append(newRow);
+            $('.select2-new').select2({
+                theme: "bootstrap-5",
+                width: '100%'
+            });
+            $('.select2-new').removeClass('select2-new');
+        });
+        
+        // Remove ingredient row
+        $(document).on('click', '.remove-ingredient', function() {
+            $(this).closest('.ingredient-row').remove();
+        });
+        
         // Add unit row
         $('#add-unit').click(function() {
             var index = $('.unit-row').length;
@@ -409,7 +594,7 @@
                 
                 if (targetName.includes('additional_units')) {
                     var realFieldName = targetName.replace('purchase_price', 'purchase_price_real')
-                                               .replace('selling_price', 'selling_price_real');
+                                                .replace('selling_price', 'selling_price_real');
                     $('input[name="' + realFieldName + '"]').val(value || 0);
                 } else {
                     var hiddenFieldId = $(this).attr('id') + '_real';

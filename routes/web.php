@@ -51,6 +51,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('products/import/template', [ProductController::class, 'importTemplate'])->name('products.import.template');
         Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
         Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
+        Route::get('/products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
     });
     
     Route::group(['middleware' => ['permission:view suppliers']], function () {

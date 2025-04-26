@@ -72,6 +72,41 @@
                         <p class="text-muted">{{ $product->description ?: 'Tidak ada deskripsi tersedia.' }}</p>
                     </div>
 
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-dark">Sumber Produk</h6>
+                                <p class="mb-0">
+                                    <span class="badge bg-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}-light text-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}">
+                                        {{ $product->store_source == 'pusat' ? 'Pusat' : 'Store' }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        @if($product->store_source == 'store')
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-dark">Store</h6>
+                                <p class="mb-0">{{ $product->store->name ?? 'Tidak tersedia' }}</p>
+                            </div>
+                        </div>
+                        @endif
+
+                        @if($product->store_source == 'store' && $product->is_processed)
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-dark">Jenis Produk</h6>
+                                <p class="mb-0">
+                                    <span class="badge bg-warning-light text-warning">
+                                        Produk Olahan
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+
                     <div class="row mt-4">
                         <div class="col-md-6">
                             <div class="card bg-primary text-white mb-3">
@@ -148,6 +183,46 @@
                     </div>
                 </div>
             </div>
+
+            @if($product->is_processed && $product->ingredients->count() > 0)
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex align-items-center">
+                    <i class="fas fa-mortar-pestle text-primary me-2"></i>
+                    <h6 class="m-0 fw-bold text-primary">Bahan-bahan Produk</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Bahan</th>
+                                    <th>Jumlah</th>
+                                    <th>Satuan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($product->ingredients as $ingredient)
+                                <tr>
+                                    <td>
+                                        <a href="{{ route('products.show', $ingredient->id) }}" class="text-primary fw-medium">
+                                            {{ $ingredient->name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ $ingredient->pivot->quantity }}</td>
+                                    <td>
+                                        @php
+                                            $unitName = App\Models\Unit::find($ingredient->pivot->unit_id)->name ?? '';
+                                        @endphp
+                                        {{ $unitName }}
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @endif
         </div>
 
         <div class="col-md-6">

@@ -11,7 +11,13 @@ class Product extends Model
 
     protected $fillable = [
         'code', 'name', 'description', 'category_id', 'base_unit_id', 
-        'purchase_price', 'selling_price', 'min_stock', 'image', 'is_active', 'store_source'
+        'purchase_price', 'selling_price', 'min_stock', 'image', 'is_active', 
+        'store_source', 'store_id', 'is_processed'
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'is_processed' => 'boolean',
     ];
 
     public function category()
@@ -47,5 +53,25 @@ class Product extends Model
     public function storeStocks()
     {
         return $this->hasMany(StockStore::class);
+    }
+
+    public function store()
+    {
+        return $this->belongsTo(Store::class);
+    }
+
+    // Relasi untuk produk olahan dan bahan-bahannya
+    public function ingredients()
+    {
+        return $this->belongsToMany(Product::class, 'product_ingredients', 'product_id', 'ingredient_id')
+            ->withPivot('quantity', 'unit_id')
+            ->withTimestamps();
+    }
+
+    public function processedProducts()
+    {
+        return $this->belongsToMany(Product::class, 'product_ingredients', 'ingredient_id', 'product_id')
+            ->withPivot('quantity', 'unit_id')
+            ->withTimestamps();
     }
 }

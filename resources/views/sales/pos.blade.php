@@ -64,6 +64,18 @@
         color: white;
     }
     
+    .processed-badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        z-index: 10;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        background-color: #fb923c;
+        color: white;
+    }
+    
     /* Custom scrollbar */
     .products-container::-webkit-scrollbar,
     .cart-container::-webkit-scrollbar {
@@ -165,7 +177,7 @@
                             <div class="col-6">
                                 <select class="form-select form-select-sm" id="payment-type">
                                     <option value="tunai">Tunai</option>
-                                    <option value="kartu">Kartu</option>
+                                    <option value="non_tunai">Non Tunai</option>
                                 </select>
                             </div>
                         </div>
@@ -232,7 +244,19 @@
                         <div class="row" id="products-grid">
                             @foreach($products as $product)
                                 <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
-                                    <div class="card product-card" data-id="{{ $product->id }}" data-code="{{ $product->code }}" data-name="{{ $product->name }}" data-price="{{ $product->selling_price }}" data-unit-id="{{ $product->base_unit_id }}" data-unit-name="{{ $product->baseUnit->name }}">
+                                    <div class="card product-card" 
+                                        data-id="{{ $product->id }}" 
+                                        data-code="{{ $product->code }}" 
+                                        data-name="{{ $product->name }}" 
+                                        data-price="{{ $product->selling_price }}" 
+                                        data-unit-id="{{ $product->base_unit_id }}" 
+                                        data-unit-name="{{ $product->baseUnit->name }}"
+                                        data-is-processed="{{ $product->is_processed ? 'true' : 'false' }}">
+                                        @if($product->is_processed)
+                                            <span class="processed-badge">
+                                                <i class="fas fa-mortar-pestle me-1"></i> Olahan
+                                            </span>
+                                        @endif
                                         <div class="text-center">
                                             @if($product->image)
                                                 <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="product-image">
@@ -282,6 +306,29 @@
         </div>
     </div>
 </div>
+
+<!-- Ingredients Modal -->
+<div class="modal fade" id="ingredients-modal" tabindex="-1" aria-labelledby="ingredientsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title" id="ingredientsModalLabel">Informasi Produk Olahan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Produk ini adalah produk olahan yang akan mengurangi stok bahan-bahan berikut:</p>
+                <ul id="ingredients-list" class="list-group mb-3">
+                    <!-- Ingredients will be added here -->
+                </ul>
+                <p>Apakah Anda ingin melanjutkan menambahkan produk ini ke keranjang?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" id="confirm-add-processed">Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -290,6 +337,7 @@
         // Variables
         let cartItems = [];
         let taxRate = 0.1; // 10%
+        let selectedProduct = null;
         
         // Format number with thousand separator
         function formatNumber(number) {
@@ -330,9 +378,13 @@
             $('#cart-table tbody tr:not(#empty-cart-row)').remove();
             
             cartItems.forEach((item, index) => {
+                const isProcessed = item.is_processed ? '<span class="badge bg-warning text-white ms-1"><i class="fas fa-mortar-pestle"></i></span>' : '';
+                
                 const row = `
                     <tr>
-                        <td class="text-truncate" style="max-width: 120px;">${item.name}</td>
+                        <td class="text-truncate" style="max-width: 120px;">
+                            ${item.name} ${isProcessed}
+                        </td>
                         <td>
                             <input type="number" class="form-control form-control-sm item-quantity" data-index="${index}" value="${item.quantity}" min="1" step="1">
                         </td>
@@ -407,13 +459,69 @@
             }
         });
         
-        // Add product to cart
-        $(document).on('click', '.product-card', function() {
-            const productId = $(this).data('id');
-            const productName = $(this).data('name');
-            const productPrice = parseFloat($(this).data('price'));
-            const unitId = $(this).data('unit-id');
-            const unitName = $(this).data('unit-name');
+        // Fetch ingredients for processed product
+        function fetchIngredients(productId, callback) {
+            $.ajax({
+                url: "{{ route('products.ingredients') }}",
+                type: "GET",
+                data: {
+                    product_id: productId
+                },
+                success: function(response) {
+                    if (response.success) {
+                        callback(response.ingredients);
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal',
+                            text: response.message || 'Gagal mendapatkan bahan produk'
+                        });
+                    }
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: 'Terjadi kesalahan saat mengambil data bahan produk'
+                    });
+                }
+            });
+        }
+        
+        // Handle adding product to cart
+        function addProductToCart(product, showIngredients = true) {
+            const productId = product.data('id');
+            const productName = product.data('name');
+            const productPrice = parseFloat(product.data('price'));
+            const unitId = product.data('unit-id');
+            const unitName = product.data('unit-name');
+            const isProcessed = product.data('is-processed') === 'true';
+            
+            // For processed products, show ingredients first if showIngredients is true
+            if (isProcessed && showIngredients) {
+                selectedProduct = product;
+                
+                // Fetch ingredients and show modal
+                fetchIngredients(productId, function(ingredients) {
+                    // Clear previous ingredients
+                    $('#ingredients-list').empty();
+                    
+                    // Add ingredients to the list
+                    ingredients.forEach(ingredient => {
+                        $('#ingredients-list').append(`
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                ${ingredient.name}
+                                <span class="badge bg-primary rounded-pill">${ingredient.quantity} ${ingredient.unit_name}</span>
+                            </li>
+                        `);
+                    });
+                    
+                    // Show the modal
+                    $('#ingredients-modal').modal('show');
+                });
+                
+                return;
+            }
             
             // Check if product already in cart
             const existingItemIndex = cartItems.findIndex(item => item.product_id === productId);
@@ -429,11 +537,28 @@
                     price: productPrice,
                     quantity: 1,
                     unit_id: unitId,
-                    unit_name: unitName
+                    unit_name: unitName,
+                    is_processed: isProcessed
                 });
             }
             
             updateCartTable();
+        }
+        
+        // Add product to cart when clicked
+        $(document).on('click', '.product-card', function() {
+            addProductToCart($(this));
+        });
+        
+        // Handle confirmation from ingredients modal
+        $('#confirm-add-processed').click(function() {
+            $('#ingredients-modal').modal('hide');
+            
+            if (selectedProduct) {
+                // Add product to cart without showing ingredients modal again
+                addProductToCart(selectedProduct, false);
+                selectedProduct = null;
+            }
         });
         
         // Update item quantity
@@ -533,7 +658,8 @@
                     quantity: item.quantity,
                     price: item.price,
                     discount: 0, // Individual item discount not implemented in this UI
-                    subtotal: item.quantity * item.price
+                    subtotal: item.quantity * item.price,
+                    is_processed: item.is_processed
                 }))
             };
             

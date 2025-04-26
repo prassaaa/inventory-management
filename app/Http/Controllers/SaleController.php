@@ -23,7 +23,7 @@ class SaleController extends Controller
             ->where('store_id', Auth::user()->store_id)
             ->orderBy('date', 'desc')
             ->get();
-        
+
         return view('sales.index', compact('sales'));
     }
 
@@ -53,9 +53,9 @@ class SaleController extends Controller
         if (Auth::user()->store_id !== $sale->store_id && !Auth::user()->hasRole('owner')) {
             abort(403, 'Unauthorized action.');
         }
-        
+
         $sale->load(['store', 'creator', 'saleDetails.product', 'saleDetails.unit']);
-        
+
         return view('sales.show', compact('sale'));
     }
 
@@ -65,12 +65,12 @@ class SaleController extends Controller
     public function pos()
     {
         $categories = \App\Models\Category::orderBy('name')->get();
-        
+
         $products = Product::with(['category', 'baseUnit'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
-        
+
         // Add store stock for each product
         foreach ($products as $product) {
             $product->storeStock = StockStore::where('store_id', Auth::user()->store_id)
@@ -78,7 +78,7 @@ class SaleController extends Controller
                 ->where('unit_id', $product->base_unit_id)
                 ->first();
         }
-        
+
         return view('sales.pos', compact('categories', 'products'));
     }
 
@@ -89,7 +89,7 @@ class SaleController extends Controller
     {
         $validated = $request->validate([
             'sale.store_id' => 'required|exists:stores,id',
-            'sale.payment_type' => 'required|in:tunai,kartu,tempo',
+            'sale.payment_type' => 'required|in:tunai,non_tunai',
             'sale.customer_name' => 'nullable|string|max:255',
             'sale.discount' => 'required|numeric|min:0',
             'sale.tax' => 'required|numeric|min:0',
@@ -103,21 +103,22 @@ class SaleController extends Controller
             'sale.items.*.price' => 'required|numeric|min:0',
             'sale.items.*.discount' => 'required|numeric|min:0',
             'sale.items.*.subtotal' => 'required|numeric|min:0',
+            'sale.items.*.is_processed' => 'nullable|boolean',
         ]);
-        
+
         $saleData = $request->sale;
-        
+
         try {
             DB::beginTransaction();
-            
+
             // Generate invoice number
             $lastSale = Sale::where('store_id', $saleData['store_id'])
                 ->latest()
                 ->first();
-                
+
             $storeCode = Store::find($saleData['store_id'])->name[0] ?? 'S';
             $invoiceNumber = 'INV/' . $storeCode . '/' . date('Ymd') . '/' . sprintf('%04d', $lastSale ? (int)substr($lastSale->invoice_number, -4) + 1 : 1);
-            
+
             // Create sale
             $sale = Sale::create([
                 'store_id' => $saleData['store_id'],
@@ -133,7 +134,7 @@ class SaleController extends Controller
                 'status' => 'paid',
                 'created_by' => Auth::id(),
             ]);
-            
+
             // Create sale details and update stock
             foreach ($saleData['items'] as $item) {
                 SaleDetail::create([
@@ -145,45 +146,76 @@ class SaleController extends Controller
                     'discount' => $item['discount'],
                     'subtotal' => $item['subtotal'],
                 ]);
-                
-                // Update store stock
+
+                // Get product
                 $product = Product::find($item['product_id']);
-                
-                // Convert quantity to base unit if necessary
-                $baseQuantity = $item['quantity'];
-                if ($item['unit_id'] !== $product->base_unit_id) {
-                    // Use helper for unit conversion
-                    $baseQuantity = \App\Helpers\UnitConversion::convert(
-                        $item['quantity'], 
-                        $item['unit_id'], 
-                        $product->base_unit_id, 
-                        $product->id
-                    );
-                    
-                    if ($baseQuantity === null) {
-                        throw new \Exception("Cannot convert unit for product {$product->name}.");
+
+                // Check if product is processed
+                if (isset($item['is_processed']) && $item['is_processed']) {
+                    // For processed products, reduce stock of ingredients
+                    $ingredients = $product->ingredients()->with('baseUnit')->get();
+
+                    foreach ($ingredients as $ingredient) {
+                        // Calculate quantity needed for this ingredient
+                        $ingredientQuantity = $ingredient->pivot->quantity * $item['quantity'];
+
+                        // Find store stock for this ingredient
+                        $ingredientStockStore = StockStore::firstOrCreate(
+                            [
+                                'store_id' => $saleData['store_id'],
+                                'product_id' => $ingredient->id,
+                                'unit_id' => $ingredient->pivot->unit_id
+                            ],
+                            ['quantity' => 0]
+                        );
+
+                        // Check if enough stock
+                        if ($ingredientStockStore->quantity < $ingredientQuantity) {
+                            throw new \Exception("Stok bahan {$ingredient->name} tidak mencukupi untuk produk {$product->name}.");
+                        }
+
+                        // Reduce stock
+                        $ingredientStockStore->decrement('quantity', $ingredientQuantity);
                     }
+                } else {
+                    // For regular products, proceed with normal stock reduction
+
+                    // Convert quantity to base unit if necessary
+                    $baseQuantity = $item['quantity'];
+                    if ($item['unit_id'] !== $product->base_unit_id) {
+                        // Use helper for unit conversion
+                        $baseQuantity = \App\Helpers\UnitConversion::convert(
+                            $item['quantity'],
+                            $item['unit_id'],
+                            $product->base_unit_id,
+                            $product->id
+                        );
+
+                        if ($baseQuantity === null) {
+                            throw new \Exception("Cannot convert unit for product {$product->name}.");
+                        }
+                    }
+
+                    // Update or create stock store
+                    $stockStore = StockStore::firstOrCreate(
+                        [
+                            'store_id' => $saleData['store_id'],
+                            'product_id' => $item['product_id'],
+                            'unit_id' => $product->base_unit_id
+                        ],
+                        ['quantity' => 0]
+                    );
+
+                    if ($stockStore->quantity < $baseQuantity) {
+                        throw new \Exception("Not enough stock for product {$product->name}.");
+                    }
+
+                    $stockStore->decrement('quantity', $baseQuantity);
                 }
-                
-                // Update or create stock store
-                $stockStore = StockStore::firstOrCreate(
-                    [
-                        'store_id' => $saleData['store_id'],
-                        'product_id' => $item['product_id'], 
-                        'unit_id' => $product->base_unit_id
-                    ],
-                    ['quantity' => 0]
-                );
-                
-                if ($stockStore->quantity < $baseQuantity) {
-                    throw new \Exception("Not enough stock for product {$product->name}.");
-                }
-                
-                $stockStore->decrement('quantity', $baseQuantity);
             }
-            
+
             DB::commit();
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Sale processed successfully.',
@@ -205,9 +237,9 @@ class SaleController extends Controller
     public function receipt(Sale $sale)
     {
         $sale->load(['store', 'creator', 'saleDetails.product', 'saleDetails.unit']);
-        
+
         $pdf = PDF::loadView('sales.receipt', compact('sale'))->setPaper([0, 0, 226.77, 650], 'portrait');
-        
+
         return $pdf->stream('sale_' . $sale->invoice_number . '.pdf');
     }
 }

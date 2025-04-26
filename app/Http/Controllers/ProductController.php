@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
+use App\Models\Store;
 
 class ProductController extends Controller
 {
@@ -35,8 +36,10 @@ class ProductController extends Controller
         $categories = Category::orderBy('name')->get();
         $baseUnits = Unit::where('is_base_unit', true)->orderBy('name')->get();
         $units = Unit::orderBy('name')->get();
-        
-        return view('products.create', compact('categories', 'baseUnits', 'units'));
+        $stores = Store::orderBy('name')->get();
+        $centralProducts = Product::where('store_source', 'pusat')->where('is_active', true)->orderBy('name')->get();
+
+        return view('products.create', compact('categories', 'baseUnits', 'units', 'stores', 'centralProducts'));
     }
 
     /**
@@ -55,6 +58,13 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'image' => 'nullable|image|max:2048', // max 2MB
             'is_active' => 'sometimes|boolean',
+            'store_source' => 'required|in:pusat,store',
+            'store_id' => 'nullable|required_if:store_source,store|exists:stores,id',
+            'is_processed' => 'sometimes|boolean',
+            'ingredients' => 'nullable|array',
+            'ingredients.*.ingredient_id' => 'nullable|required_if:is_processed,1|exists:products,id',
+            'ingredients.*.quantity' => 'nullable|required_if:is_processed,1|numeric|min:0.01',
+            'ingredients.*.unit_id' => 'nullable|required_if:is_processed,1|exists:units,id',
             'additional_units' => 'nullable|array',
             'additional_units.*.unit_id' => 'nullable|exists:units,id',
             'additional_units.*.conversion_value' => 'nullable|numeric|min:0.0001',
@@ -66,7 +76,7 @@ class ProductController extends Controller
         if ($request->has('purchase_price_real')) {
             $validated['purchase_price'] = $request->purchase_price_real;
         }
-        
+
         if ($request->has('selling_price_real')) {
             $validated['selling_price'] = $request->selling_price_real;
         }
@@ -90,35 +100,59 @@ class ProductController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        // Set is_active to boolean value
+        // Set boolean values
         $validated['is_active'] = isset($validated['is_active']) && $validated['is_active'] == 1;
-
-        // Set store_source to 'pusat'
-        $validated['store_source'] = 'pusat';
+        $validated['is_processed'] = isset($validated['is_processed']) && $validated['is_processed'] == 1;
 
         // Create product
         $product = Product::create($validated);
 
         // Create initial warehouse stock
-        StockWarehouse::create([
-            'product_id' => $product->id,
-            'unit_id' => $product->base_unit_id,
-            'quantity' => 0
-        ]);
+        if ($validated['store_source'] === 'pusat') {
+            StockWarehouse::create([
+                'product_id' => $product->id,
+                'unit_id' => $product->base_unit_id,
+                'quantity' => 0
+            ]);
+        } else {
+            // Create initial store stock for store products
+            StockStore::create([
+                'store_id' => $validated['store_id'],
+                'product_id' => $product->id,
+                'unit_id' => $product->base_unit_id,
+                'quantity' => 0
+            ]);
+        }
+
+        // Process ingredients for processed products
+        if ($validated['is_processed'] && isset($request->ingredients)) {
+            foreach ($request->ingredients as $ingredient) {
+                if (!empty($ingredient['ingredient_id']) && !empty($ingredient['quantity'])) {
+                    DB::table('product_ingredients')->insert([
+                        'product_id' => $product->id,
+                        'ingredient_id' => $ingredient['ingredient_id'],
+                        'quantity' => $ingredient['quantity'],
+                        'unit_id' => $ingredient['unit_id'],
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+        }
 
         // Process additional units
         if (isset($validated['additional_units'])) {
             foreach ($validated['additional_units'] as $unitData) {
                 if (!empty($unitData['unit_id']) && !empty($unitData['conversion_value'])) {
                     // Handle input with currency format for additional units
-                    $purchasePrice = isset($unitData['purchase_price_real']) ? 
-                                    $unitData['purchase_price_real'] : 
+                    $purchasePrice = isset($unitData['purchase_price_real']) ?
+                                    $unitData['purchase_price_real'] :
                                     ($unitData['purchase_price'] ?? 0);
-                    
-                    $sellingPrice = isset($unitData['selling_price_real']) ? 
-                                    $unitData['selling_price_real'] : 
+
+                    $sellingPrice = isset($unitData['selling_price_real']) ?
+                                    $unitData['selling_price_real'] :
                                     ($unitData['selling_price'] ?? 0);
-                    
+
                     ProductUnit::create([
                         'product_id' => $product->id,
                         'unit_id' => $unitData['unit_id'],
@@ -140,21 +174,21 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $product->load(['category', 'baseUnit', 'productUnits.unit', 'stockWarehouses', 'storeStocks.store']);
-        
+
         // Get recent purchase details
         $recentPurchases = PurchaseDetail::with(['purchase.supplier', 'unit'])
             ->where('product_id', $product->id)
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();
-            
+
         // Get recent sale details
         $recentSales = SaleDetail::with(['sale.store', 'unit'])
             ->where('product_id', $product->id)
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();
-            
+
         return view('products.show', compact('product', 'recentPurchases', 'recentSales'));
     }
 
@@ -166,15 +200,20 @@ class ProductController extends Controller
         $categories = Category::orderBy('name')->get();
         $baseUnits = Unit::where('is_base_unit', true)->orderBy('name')->get();
         $units = Unit::orderBy('name')->get();
-        
-        $product->load('productUnits');
-        
-        return view('products.edit', compact('product', 'categories', 'baseUnits', 'units'));
+        $stores = Store::orderBy('name')->get();
+        $centralProducts = Product::where('store_source', 'pusat')->where('is_active', true)->orderBy('name')->get();
+
+        $product->load(['productUnits', 'ingredients.baseUnit']);
+
+        return view('products.edit', compact('product', 'categories', 'baseUnits', 'units', 'stores', 'centralProducts'));
     }
 
     /**
      * Update the specified resource in storage.
      */
+    /**
+ * Update the specified resource in storage.
+ */
     public function update(Request $request, Product $product)
     {
         $validated = $request->validate([
@@ -187,6 +226,13 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'image' => 'nullable|image|max:2048', // max 2MB
             'is_active' => 'sometimes|boolean',
+            'store_source' => 'required|in:pusat,store',
+            'store_id' => 'nullable|required_if:store_source,store|exists:stores,id',
+            'is_processed' => 'sometimes|boolean',
+            'ingredients' => 'nullable|array',
+            'ingredients.*.ingredient_id' => 'nullable|required_if:is_processed,1|exists:products,id',
+            'ingredients.*.quantity' => 'nullable|required_if:is_processed,1|numeric|min:0.01',
+            'ingredients.*.unit_id' => 'nullable|required_if:is_processed,1|exists:units,id',
             'additional_units' => 'nullable|array',
             'additional_units.*.unit_id' => 'nullable|exists:units,id',
             'additional_units.*.conversion_value' => 'nullable|numeric|min:0.0001',
@@ -198,11 +244,11 @@ class ProductController extends Controller
         if ($request->has('purchase_price_real')) {
             $validated['purchase_price'] = $request->purchase_price_real;
         }
-        
+
         if ($request->has('selling_price_real')) {
             $validated['selling_price'] = $request->selling_price_real;
         }
-        
+
         // Convert min_stock to integer if it's actually a whole number
         $minStock = floatval($validated['min_stock']);
         if (floor($minStock) == $minStock) {
@@ -218,42 +264,107 @@ class ProductController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        // Set is_active to boolean value
+        // Set boolean values
         $validated['is_active'] = isset($validated['is_active']) && $validated['is_active'] == 1;
+        $validated['is_processed'] = isset($validated['is_processed']) && $validated['is_processed'] == 1;
 
-        // Update product
-        $product->update($validated);
-
-        // Process additional units
-        if (isset($validated['additional_units'])) {
-            // Delete existing product units
-            $product->productUnits()->delete();
-            
-            // Create new product units
-            foreach ($validated['additional_units'] as $unitData) {
-                if (!empty($unitData['unit_id']) && !empty($unitData['conversion_value'])) {
-                    // Handle input with currency format for additional units
-                    $purchasePrice = isset($unitData['purchase_price_real']) ? 
-                                    $unitData['purchase_price_real'] : 
-                                    ($unitData['purchase_price'] ?? 0);
-                    
-                    $sellingPrice = isset($unitData['selling_price_real']) ? 
-                                    $unitData['selling_price_real'] : 
-                                    ($unitData['selling_price'] ?? 0);
-                    
-                    ProductUnit::create([
-                        'product_id' => $product->id,
-                        'unit_id' => $unitData['unit_id'],
-                        'conversion_value' => $unitData['conversion_value'],
-                        'purchase_price' => $purchasePrice,
-                        'selling_price' => $sellingPrice,
-                    ]);
-                }
-            }
+        // Update store_id if store_source is changed
+        if ($validated['store_source'] === 'pusat') {
+            $validated['store_id'] = null;
         }
 
-        return redirect()->route('products.index')
-            ->with('success', 'Product updated successfully.');
+        // Begin transaction
+        DB::beginTransaction();
+
+        try {
+            // Update product
+            $product->update($validated);
+
+            // Update stocks based on store_source change
+            if ($product->store_source === 'pusat' && !$product->stockWarehouses()->exists()) {
+                // Create warehouse stock if product is moved from store to pusat
+                StockWarehouse::create([
+                    'product_id' => $product->id,
+                    'unit_id' => $product->base_unit_id,
+                    'quantity' => 0
+                ]);
+            } elseif ($product->store_source === 'store' && !$product->storeStocks()->where('store_id', $product->store_id)->exists()) {
+                // Create store stock if product is moved from pusat to store
+                StockStore::create([
+                    'store_id' => $product->store_id,
+                    'product_id' => $product->id,
+                    'unit_id' => $product->base_unit_id,
+                    'quantity' => 0
+                ]);
+            }
+
+            // Process ingredients for processed products
+            if ($validated['is_processed']) {
+                // Delete existing ingredients
+                DB::table('product_ingredients')->where('product_id', $product->id)->delete();
+
+                // Add new ingredients
+                if (isset($request->ingredients)) {
+                    foreach ($request->ingredients as $ingredient) {
+                        if (!empty($ingredient['ingredient_id']) && !empty($ingredient['quantity'])) {
+                            DB::table('product_ingredients')->insert([
+                                'product_id' => $product->id,
+                                'ingredient_id' => $ingredient['ingredient_id'],
+                                'quantity' => $ingredient['quantity'],
+                                'unit_id' => $ingredient['unit_id'],
+                                'created_at' => now(),
+                                'updated_at' => now()
+                            ]);
+                        }
+                    }
+                }
+            } else {
+                // If not a processed product, delete all ingredients
+                DB::table('product_ingredients')->where('product_id', $product->id)->delete();
+            }
+
+            // Process additional units
+            if (isset($validated['additional_units'])) {
+                // Delete existing product units
+                $product->productUnits()->delete();
+
+                // Create new product units
+                foreach ($validated['additional_units'] as $unitData) {
+                    if (!empty($unitData['unit_id']) && !empty($unitData['conversion_value'])) {
+                        // Handle input with currency format for additional units
+                        $purchasePrice = isset($unitData['purchase_price_real']) ?
+                                        $unitData['purchase_price_real'] :
+                                        ($unitData['purchase_price'] ?? 0);
+
+                        $sellingPrice = isset($unitData['selling_price_real']) ?
+                                        $unitData['selling_price_real'] :
+                                        ($unitData['selling_price'] ?? 0);
+
+                        ProductUnit::create([
+                            'product_id' => $product->id,
+                            'unit_id' => $unitData['unit_id'],
+                            'conversion_value' => $unitData['conversion_value'],
+                            'purchase_price' => $purchasePrice,
+                            'selling_price' => $sellingPrice,
+                        ]);
+                    }
+                }
+            }
+
+            // Commit transaction
+            DB::commit();
+
+            return redirect()->route('products.index')
+                ->with('success', 'Product updated successfully.');
+
+        } catch (\Exception $e) {
+            // Rollback transaction if an error occurs
+            DB::rollBack();
+
+            return redirect()->back()
+                ->with('error', 'Error updating product: ' . $e->getMessage())
+                ->withInput();
+        }
     }
 
     /**
@@ -275,7 +386,7 @@ class ProductController extends Controller
 
         // Delete product units
         $product->productUnits()->delete();
-        
+
         // Delete product stocks
         $product->stockWarehouses()->delete();
         $product->storeStocks()->delete();
@@ -286,7 +397,7 @@ class ProductController extends Controller
         return redirect()->route('products.index')
             ->with('success', 'Product deleted successfully.');
     }
-    
+
     /**
      * Download import template
      */
@@ -295,7 +406,7 @@ class ProductController extends Controller
         $filePath = public_path('templates/product_import_template.xlsx');
         return response()->download($filePath, 'product_import_template.xlsx');
     }
-    
+
     /**
      * Import products from Excel
      */
@@ -304,7 +415,7 @@ class ProductController extends Controller
         $request->validate([
             'import_file' => 'required|file|mimes:xlsx,xls,csv'
         ]);
-        
+
         try {
             Excel::import(new ProductsImport, $request->file('import_file'));
             return redirect()->route('products.index')
@@ -314,12 +425,55 @@ class ProductController extends Controller
                 ->with('error', 'Error importing products: ' . $e->getMessage());
         }
     }
-    
+
     /**
      * Export products to Excel
      */
     public function export()
     {
         return Excel::download(new ProductsExport, 'products_' . date('Y-m-d') . '.xlsx');
+    }
+
+     /**
+     * Get ingredients for processed product
+     */
+    public function getIngredients(Request $request)
+    {
+        $productId = $request->input('product_id');
+
+        if (!$productId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'ID produk tidak valid'
+            ]);
+        }
+
+        $product = Product::with(['ingredients'])->find($productId);
+
+        if (!$product || !$product->is_processed) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Produk tidak ditemukan atau bukan produk olahan'
+            ]);
+        }
+
+        $ingredients = [];
+
+        foreach ($product->ingredients as $ingredient) {
+            $unitName = Unit::find($ingredient->pivot->unit_id)->name ?? '';
+
+            $ingredients[] = [
+                'id' => $ingredient->id,
+                'name' => $ingredient->name,
+                'quantity' => $ingredient->pivot->quantity,
+                'unit_id' => $ingredient->pivot->unit_id,
+                'unit_name' => $unitName
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'ingredients' => $ingredients
+        ]);
     }
 }

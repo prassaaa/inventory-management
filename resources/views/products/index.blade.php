@@ -65,6 +65,11 @@
                             <th>Harga Beli</th>
                             <th>Harga Jual</th>
                             <th>Stok</th>
+                            <th>Sumber</th>
+                            @if(request('source') == 'store')
+                            <th>Store</th>
+                            <th>Jenis</th>
+                            @endif
                             <th>Status</th>
                             <th>Aksi</th>
                         </tr>
@@ -97,6 +102,21 @@
                                     @endif
                                 </div>
                             </td>
+                            <td>
+                                <span class="badge bg-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}-light text-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}">
+                                    {{ $product->store_source == 'pusat' ? 'Pusat' : 'Store' }}
+                                </span>
+                            </td>
+                            @if(request('source') == 'store')
+                            <td>{{ $product->store->name ?? '-' }}</td>
+                            <td>
+                                @if($product->is_processed)
+                                <span class="badge bg-warning-light text-warning">Olahan</span>
+                                @else
+                                <span class="badge bg-secondary-light text-secondary">Regular</span>
+                                @endif
+                            </td>
+                            @endif
                             <td>
                                 <span class="badge {{ $product->is_active ? 'bg-success-light text-success' : 'bg-danger-light text-danger' }} rounded-pill px-2">
                                     {{ $product->is_active ? 'Aktif' : 'Nonaktif' }}
