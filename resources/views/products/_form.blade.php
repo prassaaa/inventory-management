@@ -49,7 +49,7 @@
             @enderror
         </div>
     </div>
-    
+
     <div class="col-md-6">
         <div class="form-group mb-3">
             <label for="purchase_price" class="form-label">Harga Beli <span class="text-danger">*</span></label>
@@ -77,7 +77,7 @@
 
         <div class="form-group mb-3">
             <label for="min_stock" class="form-label">Stok Minimum <span class="text-danger">*</span></label>
-            <input type="text" class="form-control number-format @error('min_stock') is-invalid @enderror" id="min_stock" name="min_stock" 
+            <input type="text" class="form-control number-format @error('min_stock') is-invalid @enderror" id="min_stock" name="min_stock"
                    value="{{ old('min_stock', isset($product) ? (floor($product->min_stock) == $product->min_stock ? number_format($product->min_stock, 0, ',', '.') : number_format($product->min_stock, 0, ',', '.')) : '0') }}" required>
             @error('min_stock')
                 <div class="invalid-feedback">{{ $message }}</div>
@@ -118,7 +118,7 @@
 
 <div class="form-group mb-3">
     <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" 
+        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1"
                {{ old('is_active', $product->is_active ?? true) ? 'checked' : '' }}>
         <label class="form-check-label" for="is_active">
             Aktif
@@ -175,7 +175,7 @@
                     <div class="row mb-3 ingredient-row align-items-center">
                         <div class="col-md-5">
                             <label class="form-label d-block d-md-none">Bahan</label>
-                            <select class="form-select select2" name="ingredients[{{ $index }}][ingredient_id]" required>
+                            <select class="form-select select2 ingredient-select" name="ingredients[{{ $index }}][ingredient_id]">
                                 <option value="">Pilih Bahan</option>
                                 @foreach($centralProducts as $centralProduct)
                                     <option value="{{ $centralProduct->id }}" {{ $ingredient->id == $centralProduct->id ? 'selected' : '' }}>
@@ -186,11 +186,11 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label d-block d-md-none">Jumlah</label>
-                            <input type="number" class="form-control" name="ingredients[{{ $index }}][quantity]" placeholder="Jumlah" value="{{ $ingredient->pivot->quantity }}" step="0.01" min="0.01" required>
+                            <input type="number" class="form-control ingredient-quantity" name="ingredients[{{ $index }}][quantity]" placeholder="Jumlah" value="{{ $ingredient->pivot->quantity }}" step="0.01" min="0.01">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label d-block d-md-none">Satuan</label>
-                            <select class="form-select" name="ingredients[{{ $index }}][unit_id]" required>
+                            <select class="form-select ingredient-unit" name="ingredients[{{ $index }}][unit_id]">
                                 @foreach($units as $unit)
                                     <option value="{{ $unit->id }}" {{ $ingredient->pivot->unit_id == $unit->id ? 'selected' : '' }}>
                                         {{ $unit->name }}
@@ -210,7 +210,7 @@
                 <div class="row mb-3 ingredient-row align-items-center">
                     <div class="col-md-5">
                         <label class="form-label d-block d-md-none">Bahan</label>
-                        <select class="form-select select2" name="ingredients[0][ingredient_id]" required>
+                        <select class="form-select select2 ingredient-select" name="ingredients[0][ingredient_id]">
                             <option value="">Pilih Bahan</option>
                             @foreach($centralProducts as $centralProduct)
                                 <option value="{{ $centralProduct->id }}">
@@ -221,11 +221,11 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Jumlah</label>
-                        <input type="number" class="form-control" name="ingredients[0][quantity]" placeholder="Jumlah" step="0.01" min="0.01" required>
+                        <input type="number" class="form-control ingredient-quantity" name="ingredients[0][quantity]" placeholder="Jumlah" step="0.01" min="0.01">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Satuan</label>
-                        <select class="form-select" name="ingredients[0][unit_id]" required>
+                        <select class="form-select ingredient-unit" name="ingredients[0][unit_id]">
                             @foreach($units as $unit)
                                 <option value="{{ $unit->id }}">{{ $unit->name }}</option>
                             @endforeach
@@ -268,7 +268,7 @@
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Nilai Konversi</label>
                         <div class="input-group">
-                            <input type="number" step="0.0001" class="form-control" name="additional_units[{{ $index }}][conversion_value]" 
+                            <input type="number" step="0.0001" class="form-control" name="additional_units[{{ $index }}][conversion_value]"
                                 placeholder="Konversi" value="{{ $productUnit->conversion_value }}">
                             <span class="input-group-text">per satuan dasar</span>
                         </div>
@@ -277,7 +277,7 @@
                         <label class="form-label d-block d-md-none">Harga Beli</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control money-format" name="additional_units[{{ $index }}][purchase_price]" 
+                            <input type="text" class="form-control money-format" name="additional_units[{{ $index }}][purchase_price]"
                                 placeholder="Harga Beli" value="{{ number_format($productUnit->purchase_price, 0, ',', '.') }}">
                             <input type="hidden" name="additional_units[{{ $index }}][purchase_price_real]" value="{{ $productUnit->purchase_price }}">
                         </div>
@@ -286,7 +286,7 @@
                         <label class="form-label d-block d-md-none">Harga Jual</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control money-format" name="additional_units[{{ $index }}][selling_price]" 
+                            <input type="text" class="form-control money-format" name="additional_units[{{ $index }}][selling_price]"
                                 placeholder="Harga Jual" value="{{ number_format($productUnit->selling_price, 0, ',', '.') }}">
                             <input type="hidden" name="additional_units[{{ $index }}][selling_price_real]" value="{{ $productUnit->selling_price }}">
                         </div>
@@ -313,7 +313,7 @@
                 <div class="col-md-3">
                     <label class="form-label d-block d-md-none">Nilai Konversi</label>
                     <div class="input-group">
-                        <input type="number" step="0.0001" class="form-control" name="additional_units[0][conversion_value]" 
+                        <input type="number" step="0.0001" class="form-control" name="additional_units[0][conversion_value]"
                             placeholder="Konversi">
                         <span class="input-group-text">per satuan dasar</span>
                     </div>
@@ -322,7 +322,7 @@
                     <label class="form-label d-block d-md-none">Harga Beli</label>
                     <div class="input-group">
                         <span class="input-group-text">Rp</span>
-                        <input type="text" class="form-control money-format" name="additional_units[0][purchase_price]" 
+                        <input type="text" class="form-control money-format" name="additional_units[0][purchase_price]"
                             placeholder="Harga Beli" value="0">
                         <input type="hidden" name="additional_units[0][purchase_price_real]" value="0">
                     </div>
@@ -331,7 +331,7 @@
                     <label class="form-label d-block d-md-none">Harga Jual</label>
                     <div class="input-group">
                         <span class="input-group-text">Rp</span>
-                        <input type="text" class="form-control money-format" name="additional_units[0][selling_price]" 
+                        <input type="text" class="form-control money-format" name="additional_units[0][selling_price]"
                             placeholder="Harga Jual" value="0">
                         <input type="hidden" name="additional_units[0][selling_price_real]" value="0">
                     </div>
@@ -369,36 +369,36 @@
             theme: "bootstrap-5",
             width: '100%'
         });
-        
+
         // Format currency input (Rupiah)
         function formatRupiah(value) {
             // Hapus semua karakter non-numerik
             value = value.replace(/[^\d]/g, '');
-            
+
             // Format dengan pemisah ribuan
             if (value !== '') {
                 return parseInt(value).toLocaleString('id-ID');
             }
             return value;
         }
-        
+
         // Initialize money format for existing inputs
         $('.money-format').each(function() {
             var value = $(this).val();
             var formattedValue = formatRupiah(value);
             $(this).val(formattedValue);
         });
-        
+
         // Handle input for money-format fields
         $(document).on('input', '.money-format', function() {
             var value = $(this).val();
             var formattedValue = formatRupiah(value);
             $(this).val(formattedValue);
-            
+
             // Update the hidden field with the actual numeric value
             var numericValue = value.replace(/\./g, '');
             var targetName = $(this).attr('name');
-            
+
             if (targetName.includes('additional_units')) {
                 var realFieldName = targetName.replace('purchase_price', 'purchase_price_real')
                                            .replace('selling_price', 'selling_price_real');
@@ -408,7 +408,7 @@
                 $('#' + hiddenFieldId).val(numericValue || 0);
             }
         });
-        
+
         // Format min_stock number
         $('#min_stock').each(function() {
             var value = $(this).val();
@@ -420,22 +420,22 @@
                 }
             }
         });
-        
+
         // Handle input for min_stock field
         $('#min_stock').on('input', function() {
             var value = $(this).val();
             // Hapus semua karakter non-numerik
             value = value.replace(/[^\d]/g, '');
-            
+
             // Format dengan pemisah ribuan
             if (value !== '') {
                 value = parseInt(value).toLocaleString('id-ID');
             }
-            
+
             // Update tampilan
             $(this).val(value);
         });
-        
+
         // Toggle store selection
         $('#store_source').change(function() {
             if ($(this).val() === 'store') {
@@ -446,18 +446,34 @@
                 $('#is-processed-group').hide();
                 $('#is_processed').prop('checked', false);
                 $('#ingredients-section').hide();
+                // Nonaktifkan validasi ingredients ketika tidak terlihat
+                updateIngredientsValidation(false);
             }
         });
-        
+
         // Toggle ingredients section
         $('#is_processed').change(function() {
             if ($(this).is(':checked')) {
                 $('#ingredients-section').show();
+                // Aktifkan validasi ingredients ketika terlihat
+                updateIngredientsValidation(true);
             } else {
                 $('#ingredients-section').hide();
+                // Nonaktifkan validasi ingredients ketika tidak terlihat
+                updateIngredientsValidation(false);
             }
         });
-        
+
+        // Initial validation state
+        function updateIngredientsValidation(required) {
+            $('.ingredient-select, .ingredient-quantity, .ingredient-unit').each(function() {
+                $(this).prop('required', required);
+            });
+        }
+
+        // Set initial state
+        updateIngredientsValidation($('#is_processed').is(':checked'));
+
         // Add ingredient row
         $('#add-ingredient').click(function() {
             var index = $('.ingredient-row').length;
@@ -465,7 +481,7 @@
                 <div class="row mb-3 ingredient-row align-items-center">
                     <div class="col-md-5">
                         <label class="form-label d-block d-md-none">Bahan</label>
-                        <select class="form-select select2-new" name="ingredients[${index}][ingredient_id]" required>
+                        <select class="form-select select2-new ingredient-select" name="ingredients[${index}][ingredient_id]" ${$('#is_processed').is(':checked') ? 'required' : ''}>
                             <option value="">Pilih Bahan</option>
                             @foreach($centralProducts as $centralProduct)
                                 <option value="{{ $centralProduct->id }}">
@@ -476,11 +492,12 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Jumlah</label>
-                        <input type="number" class="form-control" name="ingredients[${index}][quantity]" placeholder="Jumlah" step="0.01" min="0.01" required>
+                        <input type="number" class="form-control ingredient-quantity" name="ingredients[${index}][quantity]"
+                               placeholder="Jumlah" step="0.01" min="0.01" ${$('#is_processed').is(':checked') ? 'required' : ''}>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Satuan</label>
-                        <select class="form-select" name="ingredients[${index}][unit_id]" required>
+                        <select class="form-select ingredient-unit" name="ingredients[${index}][unit_id]" ${$('#is_processed').is(':checked') ? 'required' : ''}>
                             @foreach($units as $unit)
                                 <option value="{{ $unit->id }}">{{ $unit->name }}</option>
                             @endforeach
@@ -501,22 +518,22 @@
             });
             $('.select2-new').removeClass('select2-new');
         });
-        
+
         // Remove ingredient row
         $(document).on('click', '.remove-ingredient', function() {
             $(this).closest('.ingredient-row').remove();
         });
-        
+
         // Add unit row
         $('#add-unit').click(function() {
             var index = $('.unit-row').length;
             var unitOptions = '';
-            
+
             // Dapatkan opsi unit dari select unit pertama jika ada
             if ($('.unit-row:first select').length) {
                 unitOptions = $('.unit-row:first select').html();
             }
-            
+
             var newRow = `
                 <div class="row mb-3 unit-row align-items-center">
                     <div class="col-md-3">
@@ -528,7 +545,7 @@
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Nilai Konversi</label>
                         <div class="input-group">
-                            <input type="number" step="0.0001" class="form-control" name="additional_units[${index}][conversion_value]" 
+                            <input type="number" step="0.0001" class="form-control" name="additional_units[${index}][conversion_value]"
                                 placeholder="Konversi">
                             <span class="input-group-text">per satuan dasar</span>
                         </div>
@@ -537,7 +554,7 @@
                         <label class="form-label d-block d-md-none">Harga Beli</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control money-format" name="additional_units[${index}][purchase_price]" 
+                            <input type="text" class="form-control money-format" name="additional_units[${index}][purchase_price]"
                                 placeholder="Harga Beli" value="0">
                             <input type="hidden" name="additional_units[${index}][purchase_price_real]" value="0">
                         </div>
@@ -546,7 +563,7 @@
                         <label class="form-label d-block d-md-none">Harga Jual</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control money-format" name="additional_units[${index}][selling_price]" 
+                            <input type="text" class="form-control money-format" name="additional_units[${index}][selling_price]"
                                 placeholder="Harga Jual" value="0">
                             <input type="hidden" name="additional_units[${index}][selling_price_real]" value="0">
                         </div>
@@ -566,7 +583,7 @@
             });
             $('.select2-new').removeClass('select2-new');
         });
-        
+
         // Remove unit row
         $(document).on('click', '.remove-unit', function() {
             $(this).closest('.unit-row').remove();
@@ -579,19 +596,20 @@
                 var purchasePrice = parseFloat(purchaseValue) || 0;
                 var markup = 0.2; // 20% markup
                 var sellingPrice = purchasePrice * (1 + markup);
-                
+
                 // Update selling price and its hidden field
                 $('#selling_price').val(formatRupiah(sellingPrice.toString()));
                 $('#selling_price_real').val(sellingPrice);
             }
         });
-        
-        // Form submission - ensure hidden fields are updated
-        $('form').on('submit', function() {
+
+        // Form submission - ensure hidden fields are updated and validate ingredients
+        $('form').on('submit', function(e) {
+            // Update hidden money fields
             $('.money-format').each(function() {
                 var value = $(this).val().replace(/\./g, '');
                 var targetName = $(this).attr('name');
-                
+
                 if (targetName.includes('additional_units')) {
                     var realFieldName = targetName.replace('purchase_price', 'purchase_price_real')
                                                 .replace('selling_price', 'selling_price_real');
@@ -601,11 +619,69 @@
                     $('#' + hiddenFieldId).val(value || 0);
                 }
             });
-            
+
             // Handle min_stock field before submit
             var minStock = $('#min_stock').val();
             // Hapus pemisah ribuan sebelum dikirim ke server
             $('#min_stock').val(minStock.replace(/\./g, ''));
+
+            // Validate ingredients if product is processed
+            if ($('#is_processed').is(':checked')) {
+                var isValid = true;
+                var firstInvalidField = null;
+
+                $('.ingredient-row').each(function() {
+                    const ingredientSelect = $(this).find('.ingredient-select');
+                    const quantityInput = $(this).find('.ingredient-quantity');
+
+                    if (!ingredientSelect.val()) {
+                        isValid = false;
+                        ingredientSelect.addClass('is-invalid');
+                        if (!firstInvalidField) firstInvalidField = ingredientSelect;
+                    } else {
+                        ingredientSelect.removeClass('is-invalid');
+                    }
+
+                    if (!quantityInput.val() || parseFloat(quantityInput.val()) <= 0) {
+                        isValid = false;
+                        quantityInput.addClass('is-invalid');
+                        if (!firstInvalidField) firstInvalidField = quantityInput;
+                    } else {
+                        quantityInput.removeClass('is-invalid');
+                    }
+                });
+
+                if (!isValid) {
+                    e.preventDefault();
+
+                    // Tampilkan pesan error
+                    if (!$('#ingredient-error-message').length) {
+                        $('#ingredients-container').prepend(
+                            '<div id="ingredient-error-message" class="alert alert-danger mb-3">' +
+                            'Harap lengkapi data bahan untuk produk olahan. Pilih bahan dan masukkan jumlah yang valid.' +
+                            '</div>'
+                        );
+                    }
+
+                    // Fokus ke field yang invalid
+                    if (firstInvalidField) {
+                        $('html, body').animate({
+                            scrollTop: firstInvalidField.offset().top - 100
+                        }, 200);
+
+                        // Untuk select2, gunakan select2 focus
+                        if (firstInvalidField.hasClass('select2')) {
+                            firstInvalidField.select2('focus');
+                        } else {
+                            firstInvalidField.focus();
+                        }
+                    }
+
+                    return false;
+                } else {
+                    $('#ingredient-error-message').remove();
+                }
+            }
         });
     });
 </script>

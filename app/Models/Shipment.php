@@ -10,7 +10,7 @@ class Shipment extends Model
     use HasFactory;
 
     protected $fillable = ['store_order_id', 'shipment_number', 'date', 'status', 'note', 'created_by', 'updated_by'];
-    
+
     protected $casts = [
         'date' => 'date',
     ];
@@ -31,6 +31,16 @@ class Shipment extends Model
     }
 
     public function updater()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
     }

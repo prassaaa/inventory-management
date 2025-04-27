@@ -10,8 +10,8 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
-        'code', 'name', 'description', 'category_id', 'base_unit_id', 
-        'purchase_price', 'selling_price', 'min_stock', 'image', 'is_active', 
+        'code', 'name', 'description', 'category_id', 'base_unit_id',
+        'purchase_price', 'selling_price', 'min_stock', 'image', 'is_active',
         'store_source', 'store_id', 'is_processed'
     ];
 
@@ -23,6 +23,12 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function units()
+    {
+        return $this->belongsToMany(Unit::class, 'product_units')
+            ->withPivot('conversion_value', 'purchase_price', 'selling_price');
     }
 
     public function baseUnit()

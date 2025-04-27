@@ -17,32 +17,33 @@ class DashboardController extends Controller
         try {
             // Total Products
             $totalProducts = Product::count();
-            
+
             // Today's Sales
             $todaySales = Sale::whereDate('date', Carbon::today())->sum('total_amount');
-            
+
             // Low Stock Count
             $lowStockCount = Product::whereHas('stockWarehouses', function ($query) {
                 $query->whereColumn('quantity', '<', 'products.min_stock');
             })->count();
-            
+
             // Pending Orders
             $pendingOrders = StoreOrder::where('status', 'pending')->count();
-            
+
             // Sales Chart Data (last 7 days)
             $salesChartData = $this->getSalesChartData();
-            
+
             // Top Products Data
             $topProductsData = $this->getTopProductsData();
-            
+
             // Recent Transactions
             $recentTransactions = $this->getRecentTransactions();
-            
+
             return view('dashboard.index', compact(
                 'totalProducts',
                 'todaySales',
                 'lowStockCount',
                 'pendingOrders',
+                'pendingStoreOrders',
                 'salesChartData',
                 'topProductsData',
                 'recentTransactions'
@@ -60,12 +61,12 @@ class DashboardController extends Controller
             ]);
         }
     }
-    
+
     private function getSalesChartData()
     {
         $labels = [];
         $data = [];
-        
+
         try {
             $salesData = Sale::select(
                 DB::raw('DATE(date) as sale_date'),
@@ -75,12 +76,12 @@ class DashboardController extends Controller
             ->groupBy('sale_date')
             ->orderBy('sale_date')
             ->get();
-            
+
             // Generate array for last 7 days
             for ($i = 6; $i >= 0; $i--) {
                 $date = Carbon::now()->subDays($i)->format('Y-m-d');
                 $labels[] = Carbon::now()->subDays($i)->format('d/m');
-                
+
                 $sale = $salesData->firstWhere('sale_date', $date);
                 $data[] = $sale ? $sale->total_sales : 0;
             }
@@ -91,18 +92,18 @@ class DashboardController extends Controller
                 $data[] = 0;
             }
         }
-        
+
         return [
             'labels' => $labels,
             'data' => $data
         ];
     }
-    
+
     private function getTopProductsData()
     {
         $labels = [];
         $data = [];
-        
+
         try {
             $topProducts = DB::table('sale_details')
                 ->join('products', 'sale_details.product_id', '=', 'products.id')
@@ -111,10 +112,10 @@ class DashboardController extends Controller
                 ->orderBy('total_sold', 'desc')
                 ->limit(5)
                 ->get();
-            
+
             $labels = $topProducts->pluck('name')->toArray();
             $data = $topProducts->pluck('total_sold')->toArray();
-            
+
             // Jika tidak ada data, tambahkan placeholder
             if (empty($labels)) {
                 $labels = ['No Data'];
@@ -124,13 +125,13 @@ class DashboardController extends Controller
             $labels = ['No Data'];
             $data = [0];
         }
-        
+
         return [
             'labels' => $labels,
             'data' => $data
         ];
     }
-    
+
     private function getRecentTransactions()
     {
         try {
@@ -143,7 +144,7 @@ class DashboardController extends Controller
             )
             ->orderBy('date', 'desc')
             ->limit(5);
-            
+
             $purchases = DB::table('purchases')
                 ->select(
                     'id',
@@ -162,7 +163,7 @@ class DashboardController extends Controller
                     $item->date = Carbon::parse($item->date);
                     return $item;
                 });
-            
+
             return $purchases;
         } catch (\Exception $e) {
             return collect();

@@ -7,7 +7,7 @@
     <div class="row mb-4 align-items-center">
         <div class="col">
             <h1 class="h3 mb-0 text-dark fw-bold">
-                <i class="fas fa-tachometer-alt me-2 text-primary"></i> Dashboard 
+                <i class="fas fa-tachometer-alt me-2 text-primary"></i> Dashboard
             </h1>
             <p class="text-muted">Selamat datang, {{ Auth::user()->name }}! Berikut adalah ringkasan bisnis Anda.</p>
         </div>
@@ -93,6 +93,41 @@
             </div>
         </div>
 
+        <!-- Kartu Pesanan Toko -->
+        @canany(['view store orders', 'view shipments'])
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs fw-bold text-uppercase mb-1 text-warning">
+                                Pesanan Toko
+                            </div>
+                            <div class="h4 mb-0 fw-bold text-gray-800">
+                                {{ App\Models\StoreOrder::where('status', 'pending')->count() ?? 0 }}
+                            </div>
+                            <div class="text-xs text-muted mt-2">
+                                <i class="fas fa-clock text-warning me-1"></i> Menunggu proses
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="icon-circle bg-warning bg-opacity-10">
+                                <i class="fas fa-shopping-basket fa-2x text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @if(Auth::user()->hasRole('admin_store'))
+                <a href="{{ route('store.orders.index') }}" class="card-footer bg-white text-center py-2 text-warning fw-bold small">
+                @else
+                <a href="{{ route('store-orders.index') }}" class="card-footer bg-white text-center py-2 text-warning fw-bold small">
+                @endif
+                    <span>Lihat Semua</span>
+                    <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+        @else
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-warning shadow h-100 py-2">
                 <div class="card-body">
@@ -115,6 +150,7 @@
                 </div>
             </div>
         </div>
+        @endcanany
     </div>
 
     <div class="row mb-4">
@@ -250,6 +286,119 @@
             </div>
         </div>
     </div>
+
+    @canany(['view store orders', 'view shipments'])
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-primary">Pesanan Toko Terbaru</h6>
+                    @if(Auth::user()->hasRole('admin_store'))
+                    <a href="{{ route('store.orders.index') }}" class="btn btn-sm btn-primary">
+                    @else
+                    <a href="{{ route('store-orders.index') }}" class="btn btn-sm btn-primary">
+                    @endif
+                        <i class="fas fa-list me-1"></i> Lihat Semua
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" width="100%" cellspacing="0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>No. Pesanan</th>
+                                    <th>Toko</th>
+                                    <th>Tanggal</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php
+                                    $recentStoreOrders = App\Models\StoreOrder::with('store')
+                                        ->orderBy('created_at', 'desc')
+                                        ->take(5)
+                                        ->get();
+                                @endphp
+
+                                @if(count($recentStoreOrders) > 0)
+                                    @foreach($recentStoreOrders as $order)
+                                    <tr>
+                                        <td>{{ $order->order_number }}</td>
+                                        <td>{{ $order->store->name }}</td>
+                                        <td>{{ $order->date->format('d/m/Y') }}</td>
+                                        <td>
+                                            @if($order->status == 'pending')
+                                                <span class="badge bg-warning bg-opacity-10 text-warning">Menunggu</span>
+                                            @elseif($order->status == 'confirmed_by_admin')
+                                                <span class="badge bg-info bg-opacity-10 text-info">Dikonfirmasi</span>
+                                            @elseif($order->status == 'forwarded_to_warehouse')
+                                                <span class="badge bg-primary bg-opacity-10 text-primary">Diteruskan</span>
+                                            @elseif($order->status == 'shipped')
+                                                <span class="badge bg-info bg-opacity-10 text-info">Dikirim</span>
+                                            @elseif($order->status == 'completed')
+                                                <span class="badge bg-success bg-opacity-10 text-success">Selesai</span>
+                                            @else
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ ucfirst($order->status) }}</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="btn-group">
+                                                @if(Auth::user()->hasRole('admin_store'))
+                                                <a href="{{ route('store.orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Lihat Detail">
+                                                @else
+                                                <a href="{{ route('store-orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Lihat Detail">
+                                                @endif
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+
+                                                @if(Auth::user()->hasRole(['owner', 'admin_back_office']) && $order->status == 'pending')
+                                                <form action="{{ route('store-orders.confirm', $order->id) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="Konfirmasi">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                </form>
+                                                @endif
+
+                                                @if(Auth::user()->hasRole('admin_gudang') && $order->status == 'forwarded_to_warehouse')
+                                                <a href="{{ route('warehouse.store-orders.shipment.create', $order->id) }}" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Buat Pengiriman">
+                                                    <i class="fas fa-truck"></i>
+                                                </a>
+                                                @endif
+
+                                                @if(Auth::user()->hasRole('admin_store') && $order->status == 'shipped')
+                                                <form action="{{ route('store.orders.confirm-delivery', $order->id) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="Konfirmasi Penerimaan">
+                                                        <i class="fas fa-check-double"></i>
+                                                    </button>
+                                                </form>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                @else
+                                    <tr>
+                                        <td colspan="5" class="text-center">Tidak ada pesanan toko ditemukan</td>
+                                    </tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white">
+                    @if(Auth::user()->hasRole('admin_store'))
+                    <a href="{{ route('store.orders.index') }}" class="text-primary fw-bold">Lihat semua pesanan <i class="fas fa-arrow-right ms-1"></i></a>
+                    @else
+                    <a href="{{ route('store-orders.index') }}" class="text-primary fw-bold">Lihat semua pesanan <i class="fas fa-arrow-right ms-1"></i></a>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+    @endcanany
 </div>
 
 <!-- Filter Modal -->
@@ -434,7 +583,7 @@
             }
         }
     });
-    
+
     // Refresh data button functionality
     document.getElementById('refreshData').addEventListener('click', function() {
         // Tampilkan loading spinner
