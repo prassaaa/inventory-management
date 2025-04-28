@@ -17,7 +17,7 @@
                 <a href="{{ route('purchases.edit', $purchase) }}" class="btn btn-primary">
                     <i class="fas fa-edit me-1"></i> Edit
                 </a>
-                
+
                 <button type="button" class="btn btn-success confirm-btn"
                         data-id="{{ $purchase->id }}"
                         data-invoice="{{ $purchase->invoice_number }}">
@@ -31,14 +31,14 @@
                 <a href="{{ route('purchases.receipt', $purchase) }}" class="btn btn-outline-secondary" target="_blank">
                     <i class="fas fa-print me-1"></i> Cetak
                 </a>
-                
+
                 @can('create purchase returns')
                 <a href="{{ route('purchase-returns.create-from-purchase', $purchase) }}" class="btn btn-warning">
                     <i class="fas fa-undo me-1"></i> Retur
                 </a>
                 @endcan
             @endif
-            
+
             <a href="{{ route('purchases.index') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-1"></i> Kembali
             </a>
@@ -91,6 +91,8 @@
                             <td class="border-0">
                                 @if($purchase->status === 'pending')
                                     <span class="badge bg-warning-light text-warning rounded-pill px-2">Tertunda</span>
+                                @elseif($purchase->status === 'confirmed')
+                                    <span class="badge bg-info-light text-info rounded-pill px-2">Menunggu Konfirmasi Gudang</span>
                                 @elseif($purchase->status === 'complete')
                                     <span class="badge bg-success-light text-success rounded-pill px-2">Selesai</span>
                                 @elseif($purchase->status === 'partial')
@@ -292,19 +294,22 @@
                 trigger: 'hover'
             });
         });
-        
+
         // Confirm purchase
         $('.confirm-btn').click(function() {
+            console.log('Confirm button clicked');
             var id = $(this).data('id');
             var invoice = $(this).data('invoice');
-            
+
             $('#confirm-purchase-invoice').text(invoice);
             $('#confirm-purchase').data('id', id);
             $('#confirmPurchaseModal').modal('show');
         });
-        
+
         $('#confirm-purchase').click(function() {
+            console.log('Confirm modal button clicked');
             var id = $(this).data('id');
+            console.log('Submitting form with ID: confirm-form-' + id);
             $('#confirm-form-' + id).submit();
         });
     });

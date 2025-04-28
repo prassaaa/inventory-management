@@ -159,6 +159,24 @@
         </div>
         @endcanany
 
+        <!-- BAGIAN BARU: Menu Konfirmasi Pembelian untuk Admin Gudang -->
+        @role('admin_warehouse')
+        <a href="{{ route('warehouse.purchases.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('warehouse.purchases.*') ? 'active-menu' : '' }}">
+            <div class="d-flex align-items-center">
+                <span class="icon-wrapper me-3">
+                    <i class="fas fa-check-circle text-primary"></i>
+                </span>
+                <span>Konfirmasi Pembelian</span>
+                @php
+                    $unconfirmedCount = \App\Models\Purchase::where('status', 'confirmed')->count();
+                @endphp
+                @if($unconfirmedCount > 0)
+                    <span class="badge bg-danger ms-2">{{ $unconfirmedCount }}</span>
+                @endif
+            </div>
+        </a>
+        @endrole
+
         <!-- Divider -->
         <div class="sidebar-divider my-2"></div>
         <h6 class="sidebar-heading px-3 text-muted text-uppercase small">Inventaris</h6>

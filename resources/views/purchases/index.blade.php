@@ -80,6 +80,8 @@
                             <td>
                                 @if($purchase->status === 'pending')
                                     <span class="badge bg-warning-light text-warning rounded-pill px-2">Tertunda</span>
+                                @elseif($purchase->status === 'confirmed')
+                                    <span class="badge bg-info-light text-info rounded-pill px-2">Menunggu Konfirmasi Gudang</span>
                                 @elseif($purchase->status === 'complete')
                                     <span class="badge bg-success-light text-success rounded-pill px-2">Selesai</span>
                                 @elseif($purchase->status === 'partial')
@@ -91,16 +93,16 @@
                                     <a href="{{ route('purchases.show', $purchase) }}" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Lihat Detail">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    
+
                                     @if($purchase->status === 'pending')
                                         @can('edit purchases')
                                         <a href="{{ route('purchases.edit', $purchase) }}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         @endcan
-                                    
+
                                         @can('delete purchases')
-                                        <button type="button" class="btn btn-sm btn-outline-danger delete-btn" 
+                                        <button type="button" class="btn btn-sm btn-outline-danger delete-btn"
                                                 data-bs-toggle="tooltip" title="Hapus"
                                                 data-id="{{ $purchase->id }}"
                                                 data-invoice="{{ $purchase->invoice_number }}">
@@ -111,7 +113,7 @@
                                             @method('DELETE')
                                         </form>
                                         @endcan
-                                    
+
                                         @can('edit purchases')
                                         <button type="button" class="btn btn-sm btn-outline-success confirm-btn"
                                                 data-bs-toggle="tooltip" title="Konfirmasi"
@@ -124,12 +126,12 @@
                                         </form>
                                         @endcan
                                     @endif
-                                    
+
                                     @if($purchase->status !== 'pending')
                                         <a href="{{ route('purchases.receipt', $purchase) }}" class="btn btn-sm btn-outline-secondary" target="_blank" data-bs-toggle="tooltip" title="Cetak">
                                             <i class="fas fa-print"></i>
                                         </a>
-                                        
+
                                         @can('create purchase returns')
                                         <a href="{{ route('purchase-returns.create-from-purchase', $purchase) }}" class="btn btn-sm btn-outline-warning" data-bs-toggle="tooltip" title="Retur">
                                             <i class="fas fa-undo"></i>
@@ -208,7 +210,7 @@
             // Hancurkan tabel yang sudah ada sebelum menginisialisasi yang baru
             $('.datatable').DataTable().destroy();
         }
-        
+
         // Inisialisasi DataTable baru
         var table = $('.datatable').DataTable({
             language: {
@@ -220,22 +222,22 @@
             order: [[0, 'desc']],
             destroy: true // Pastikan opsi destroy diaktifkan
         });
-        
+
         // Custom search
         $('#customSearch').keyup(function() {
             table.search($(this).val()).draw();
         });
-        
+
         // Delete confirmation
         $('.delete-btn').click(function() {
             var id = $(this).data('id');
             var invoice = $(this).data('invoice');
-            
+
             $('#purchase-invoice').text(invoice);
             $('#confirm-delete').data('id', id);
             $('#deleteModal').modal('show');
         });
-        
+
         $('#confirm-delete').click(function() {
             var id = $(this).data('id');
             $('#delete-form-' + id).submit();
@@ -245,12 +247,12 @@
         $('.confirm-btn').click(function() {
             var id = $(this).data('id');
             var invoice = $(this).data('invoice');
-            
+
             $('#confirm-purchase-invoice').text(invoice);
             $('#confirm-purchase').data('id', id);
             $('#confirmPurchaseModal').modal('show');
         });
-        
+
         $('#confirm-purchase').click(function() {
             var id = $(this).data('id');
             $('#confirm-form-' + id).submit();

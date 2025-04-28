@@ -9,8 +9,12 @@ class Purchase extends Model
 {
     use HasFactory;
 
+    const STATUS_PENDING = 'pending';
+    const STATUS_CONFIRMED = 'confirmed';
+    const STATUS_COMPLETE = 'complete';
+
     protected $fillable = [
-        'supplier_id', 'invoice_number', 'date', 'total_amount', 
+        'supplier_id', 'invoice_number', 'date', 'total_amount',
         'payment_type', 'due_date', 'status', 'note', 'created_by', 'updated_by'
     ];
 

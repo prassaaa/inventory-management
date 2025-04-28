@@ -24,6 +24,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Admin\BackOfficeStoreOrderController;
 use App\Http\Controllers\Store\StoreClientOrderController;
 use App\Http\Controllers\Warehouse\WarehouseOrderController;
+use App\Http\Controllers\Warehouse\WarehousePurchaseController;
 
 /*
 |--------------------------------------------------------------------------
@@ -98,6 +99,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('warehouse/store-orders/{id}', [WarehouseOrderController::class, 'show'])->name('warehouse.store-orders.show');
         Route::get('warehouse/store-orders/{id}/shipment/create', [WarehouseOrderController::class, 'createShipment'])->name('warehouse.store-orders.shipment.create');
         Route::post('warehouse/store-orders/{id}/shipment', [WarehouseOrderController::class, 'storeShipment'])->name('warehouse.store-orders.shipment.store');
+    });
+
+    // Warehouse Purchase Confirmation - BAGIAN BARU
+    Route::group(['middleware' => ['permission:view purchases']], function () {
+        Route::get('warehouse/purchases', [WarehousePurchaseController::class, 'index'])->name('warehouse.purchases.index');
+        Route::get('warehouse/purchases/{purchase}', [WarehousePurchaseController::class, 'show'])->name('warehouse.purchases.show');
+        Route::post('warehouse/purchases/{purchase}/receive', [WarehousePurchaseController::class, 'processReceive'])->name('warehouse.purchases.receive');
     });
 
     // Shipments
@@ -237,6 +245,16 @@ Route::get('/fix-permissions', function() {
     $admin->assignRole('owner');
 
     return "Admin user now has owner role with " . $admin->getAllPermissions()->count() . " permissions";
+});
+
+Route::get('/debug/purchase/{purchase}', function (App\Models\Purchase $purchase) {
+    return [
+        'id' => $purchase->id,
+        'invoice' => $purchase->invoice_number,
+        'status' => $purchase->status,
+        'can_be_confirmed' => $purchase->status === 'pending',
+        'route' => route('purchases.confirm', $purchase)
+    ];
 });
 
 // Auth Routes (from Laravel Breeze)
