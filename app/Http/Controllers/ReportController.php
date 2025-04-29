@@ -20,6 +20,7 @@ use App\Exports\FinanceReportExport;
 use App\Exports\ProfitLossReportExport;
 use App\Models\AccountPayable;
 use App\Models\AccountReceivable;
+use App\Exports\SalesByStoreExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -940,5 +941,79 @@ public function payables(Request $request)
             'totalLiabilitiesAndEquity',
             'difference'
         ));
+    }
+
+    /**
+     * Display sales report by store/outlet (sorted by omzet - highest to lowest).
+     */
+    public function salesByStore(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->format('Y-m-d'));
+
+        // Query untuk mendapatkan data penjualan per store dengan total omzet
+        $storesSales = DB::table('sales')
+            ->select(
+                'stores.name as store_name',
+                'stores.id as store_id',
+                DB::raw('COUNT(sales.id) as total_transactions'),
+                DB::raw('SUM(sales.total_amount) as total_omzet')
+            )
+            ->join('stores', 'sales.store_id', '=', 'stores.id')
+            ->whereBetween('sales.date', [$startDate, $endDate])
+            ->groupBy('stores.id', 'stores.name')
+            ->orderByDesc('total_omzet') // Sortir dari omzet terbesar ke terkecil
+            ->get();
+
+        // Hitung total omzet keseluruhan
+        $totalOmzet = $storesSales->sum('total_omzet');
+        $totalTransactions = $storesSales->sum('total_transactions');
+
+        // Mendapatkan chart data untuk visualisasi
+        $chartLabels = $storesSales->pluck('store_name')->toArray();
+        $chartValues = $storesSales->pluck('total_omzet')->toArray();
+
+        $chart_data = [
+            'labels' => $chartLabels,
+            'values' => $chartValues
+        ];
+
+        return view('reports.sales-by-store', compact(
+            'storesSales',
+            'totalOmzet',
+            'totalTransactions',
+            'chart_data',
+            'startDate',
+            'endDate'
+        ));
+    }
+
+    /**
+     * Export sales by store report to Excel.
+     */
+    public function exportSalesByStore(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->format('Y-m-d'));
+
+        // Query untuk mendapatkan data penjualan per store
+        $storesSales = DB::table('sales')
+            ->select(
+                'stores.name as store_name',
+                'stores.id as store_id',
+                DB::raw('COUNT(sales.id) as total_transactions'),
+                DB::raw('SUM(sales.total_amount) as total_omzet')
+            )
+            ->join('stores', 'sales.store_id', '=', 'stores.id')
+            ->whereBetween('sales.date', [$startDate, $endDate])
+            ->groupBy('stores.id', 'stores.name')
+            ->orderByDesc('total_omzet') // Sortir dari omzet terbesar ke terkecil
+            ->get();
+
+        // Hitung total omzet keseluruhan untuk persentase
+        $totalOmzet = $storesSales->sum('total_omzet');
+
+        // Export to Excel
+        return Excel::download(new SalesByStoreExport($storesSales, $totalOmzet, $startDate, $endDate), 'penjualan_per_toko.xlsx');
     }
 }

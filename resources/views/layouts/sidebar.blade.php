@@ -223,6 +223,13 @@
         </a>
         <div class="collapse {{ request()->routeIs('reports.*') ? 'show' : '' }}" id="reportsSubmenu">
             <div class="bg-light">
+
+                @can('view sales')
+                <a href="{{ route('reports.sales-by-store') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.sales-by-store') ? 'active-submenu' : '' }}">
+                    <i class="fas fa-sort-amount-down me-2 text-primary small"></i> Peringkat Toko
+                </a>
+                @endcan
+
                 @can('view sales')
                 <a href="{{ route('reports.sales') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.sales') ? 'active-submenu' : '' }}">
                     <i class="fas fa-chart-line me-2 text-primary small"></i> Laporan Penjualan

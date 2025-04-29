@@ -165,6 +165,10 @@ Route::middleware(['auth'])->group(function () {
         Route::group(['middleware' => ['permission:view sales']], function () {
             Route::get('/sales', [ReportController::class, 'sales'])->name('sales');
             Route::get('/sales/export', [ReportController::class, 'exportSales'])->name('sales.export');
+
+            // Laporan Penjualan Per Toko (Peringkat berdasarkan omzet)
+            Route::get('/sales-by-store', [ReportController::class, 'salesByStore'])->name('sales-by-store');
+            Route::get('/sales-by-store/export', [ReportController::class, 'exportSalesByStore'])->name('sales-by-store.export');
         });
 
         Route::group(['middleware' => ['permission:view purchases']], function () {
