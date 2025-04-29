@@ -92,6 +92,7 @@ class SaleController extends Controller
             'sale.payment_type' => 'required|in:tunai,non_tunai',
             'sale.customer_name' => 'nullable|string|max:255',
             'sale.discount' => 'required|numeric|min:0',
+            'sale.tax_enabled' => 'nullable|boolean',
             'sale.tax' => 'required|numeric|min:0',
             'sale.total_amount' => 'required|numeric|min:0',
             'sale.total_payment' => 'required|numeric|min:0',

@@ -13,42 +13,42 @@
         border: none;
         box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     }
-    
+
     .product-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     }
-    
+
     .product-image {
         height: 100px;
         object-fit: contain;
         padding: 10px;
     }
-    
+
     .cart-container {
         min-height: 400px;
         max-height: 400px;
         overflow-y: auto;
     }
-    
+
     .totals-section {
         background-color: #f8fafc;
         padding: 15px;
         border-radius: 0.75rem;
     }
-    
+
     .products-container {
         min-height: 600px;
         max-height: 600px;
         overflow-y: auto;
     }
-    
+
     .category-pills {
         overflow-x: auto;
         white-space: nowrap;
         padding-bottom: 10px;
     }
-    
+
     .category-pill {
         display: inline-block;
         padding: 8px 15px;
@@ -58,12 +58,12 @@
         cursor: pointer;
         transition: all 0.2s;
     }
-    
+
     .category-pill.active {
         background-color: #2563eb;
         color: white;
     }
-    
+
     .processed-badge {
         position: absolute;
         top: 5px;
@@ -75,24 +75,24 @@
         background-color: #fb923c;
         color: white;
     }
-    
+
     /* Custom scrollbar */
     .products-container::-webkit-scrollbar,
     .cart-container::-webkit-scrollbar {
         width: 6px;
     }
-    
+
     .products-container::-webkit-scrollbar-track,
     .cart-container::-webkit-scrollbar-track {
         background: #f8fafc;
     }
-    
+
     .products-container::-webkit-scrollbar-thumb,
     .cart-container::-webkit-scrollbar-thumb {
         background-color: #d1d5db;
         border-radius: 20px;
     }
-    
+
     .products-container::-webkit-scrollbar-thumb:hover,
     .cart-container::-webkit-scrollbar-thumb:hover {
         background-color: #9ca3af;
@@ -166,7 +166,15 @@
                         </div>
                         <div class="row mb-2">
                             <div class="col-6 text-end">Pajak (10%):</div>
-                            <div class="col-6 text-end fw-medium" id="tax">0</div>
+                            <div class="col-6">
+                                <div class="d-flex justify-content-end align-items-center">
+                                    <div class="form-check form-switch me-2">
+                                        <input class="form-check-input" type="checkbox" id="tax-enabled">
+                                        <label class="form-check-label" for="tax-enabled">Aktif</label>
+                                    </div>
+                                    <span class="fw-medium" id="tax">0</span>
+                                </div>
+                            </div>
                         </div>
                         <div class="row mb-3">
                             <div class="col-6 text-end fw-bold text-primary">Total:</div>
@@ -211,7 +219,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Products Section -->
         <div class="col-lg-7">
             <div class="card shadow mb-4">
@@ -239,17 +247,17 @@
                             <div class="category-pill" data-category="{{ $category->id }}">{{ $category->name }}</div>
                         @endforeach
                     </div>
-                    
+
                     <div class="products-container">
                         <div class="row" id="products-grid">
                             @foreach($products as $product)
                                 <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
-                                    <div class="card product-card" 
-                                        data-id="{{ $product->id }}" 
-                                        data-code="{{ $product->code }}" 
-                                        data-name="{{ $product->name }}" 
-                                        data-price="{{ $product->selling_price }}" 
-                                        data-unit-id="{{ $product->base_unit_id }}" 
+                                    <div class="card product-card"
+                                        data-id="{{ $product->id }}"
+                                        data-code="{{ $product->code }}"
+                                        data-name="{{ $product->name }}"
+                                        data-price="{{ $product->selling_price }}"
+                                        data-unit-id="{{ $product->base_unit_id }}"
                                         data-unit-name="{{ $product->baseUnit->name }}"
                                         data-is-processed="{{ $product->is_processed ? 'true' : 'false' }}">
                                         @if($product->is_processed)
@@ -337,13 +345,14 @@
         // Variables
         let cartItems = [];
         let taxRate = 0.1; // 10%
+        let taxEnabled = false; // Pajak dinonaktifkan secara default
         let selectedProduct = null;
-        
+
         // Format number with thousand separator
         function formatNumber(number) {
             return number.toFixed(0).replace(/\d(?=(\d{3})+$)/g, '$&.');
         }
-        
+
         // Calculate subtotal
         function calculateSubtotal() {
             let subtotal = 0;
@@ -352,13 +361,16 @@
             });
             return subtotal;
         }
-        
+
         // Calculate tax
         function calculateTax(subtotal) {
+            if (!taxEnabled) {
+                return 0; // Jika pajak dinonaktifkan, return 0
+            }
             const discount = parseFloat($('#discount').val()) || 0;
             return Math.round((subtotal - discount) * taxRate);
         }
-        
+
         // Calculate total
         function calculateTotal() {
             const subtotal = calculateSubtotal();
@@ -366,7 +378,7 @@
             const tax = calculateTax(subtotal);
             return subtotal - discount + tax;
         }
-        
+
         // Update cart table
         function updateCartTable() {
             if (cartItems.length === 0) {
@@ -374,12 +386,12 @@
             } else {
                 $('#empty-cart-row').hide();
             }
-            
+
             $('#cart-table tbody tr:not(#empty-cart-row)').remove();
-            
+
             cartItems.forEach((item, index) => {
                 const isProcessed = item.is_processed ? '<span class="badge bg-warning text-white ms-1"><i class="fas fa-mortar-pestle"></i></span>' : '';
-                
+
                 const row = `
                     <tr>
                         <td class="text-truncate" style="max-width: 120px;">
@@ -397,13 +409,13 @@
                         </td>
                     </tr>
                 `;
-                
+
                 $('#cart-table tbody').append(row);
             });
-            
+
             updateTotals();
         }
-        
+
         // Update totals
         function updateTotals() {
             const subtotal = calculateSubtotal();
@@ -412,19 +424,25 @@
             const total = calculateTotal();
             const paidAmount = parseFloat($('#paid-amount').val()) || 0;
             const change = paidAmount - total > 0 ? paidAmount - total : 0;
-            
+
             $('#subtotal').text("Rp " + formatNumber(subtotal));
             $('#tax').text("Rp " + formatNumber(tax));
             $('#total').text("Rp " + formatNumber(total));
             $('#change').text("Rp " + formatNumber(change));
         }
-        
+
+        // Toggle tax
+        $('#tax-enabled').change(function() {
+            taxEnabled = $(this).is(':checked');
+            updateTotals();
+        });
+
         // Filter products by category
         $('.category-pill').click(function() {
             const category = $(this).data('category');
             $('.category-pill').removeClass('active');
             $(this).addClass('active');
-            
+
             if (category === 'all') {
                 $('.product-item').show();
             } else {
@@ -432,17 +450,17 @@
                 $('.product-item[data-category="' + category + '"]').show();
             }
         });
-        
+
         // Search products
         $('#search-product').on('input', function() {
             const searchTerm = $(this).val().toLowerCase();
-            
+
             if (searchTerm.length > 0) {
                 $('.product-item').hide();
                 $('.product-item').each(function() {
                     const productName = $(this).data('name');
                     const productCode = $(this).data('code');
-                    
+
                     if (productName.includes(searchTerm) || productCode.includes(searchTerm)) {
                         $(this).show();
                     }
@@ -458,7 +476,7 @@
                 }
             }
         });
-        
+
         // Fetch ingredients for processed product
         function fetchIngredients(productId, callback) {
             $.ajax({
@@ -487,7 +505,7 @@
                 }
             });
         }
-        
+
         // Handle adding product to cart
         function addProductToCart(product, showIngredients = true) {
             const productId = product.data('id');
@@ -496,16 +514,16 @@
             const unitId = product.data('unit-id');
             const unitName = product.data('unit-name');
             const isProcessed = product.data('is-processed') === 'true';
-            
+
             // For processed products, show ingredients first if showIngredients is true
             if (isProcessed && showIngredients) {
                 selectedProduct = product;
-                
+
                 // Fetch ingredients and show modal
                 fetchIngredients(productId, function(ingredients) {
                     // Clear previous ingredients
                     $('#ingredients-list').empty();
-                    
+
                     // Add ingredients to the list
                     ingredients.forEach(ingredient => {
                         $('#ingredients-list').append(`
@@ -515,17 +533,17 @@
                             </li>
                         `);
                     });
-                    
+
                     // Show the modal
                     $('#ingredients-modal').modal('show');
                 });
-                
+
                 return;
             }
-            
+
             // Check if product already in cart
             const existingItemIndex = cartItems.findIndex(item => item.product_id === productId);
-            
+
             if (existingItemIndex > -1) {
                 // Increment quantity
                 cartItems[existingItemIndex].quantity += 1;
@@ -541,48 +559,48 @@
                     is_processed: isProcessed
                 });
             }
-            
+
             updateCartTable();
         }
-        
+
         // Add product to cart when clicked
         $(document).on('click', '.product-card', function() {
             addProductToCart($(this));
         });
-        
+
         // Handle confirmation from ingredients modal
         $('#confirm-add-processed').click(function() {
             $('#ingredients-modal').modal('hide');
-            
+
             if (selectedProduct) {
                 // Add product to cart without showing ingredients modal again
                 addProductToCart(selectedProduct, false);
                 selectedProduct = null;
             }
         });
-        
+
         // Update item quantity
         $(document).on('change', '.item-quantity', function() {
             const index = $(this).data('index');
             const quantity = parseInt($(this).val()) || 1;
-            
+
             if (quantity < 1) {
                 $(this).val(1);
                 cartItems[index].quantity = 1;
             } else {
                 cartItems[index].quantity = quantity;
             }
-            
+
             updateCartTable();
         });
-        
+
         // Remove item from cart
         $(document).on('click', '.remove-item', function() {
             const index = $(this).data('index');
             cartItems.splice(index, 1);
             updateCartTable();
         });
-        
+
         // Clear cart
         $('#clear-cart').click(function() {
             if (cartItems.length > 0) {
@@ -603,17 +621,17 @@
                 });
             }
         });
-        
+
         // Update totals when discount changes
         $('#discount').on('input', function() {
             updateTotals();
         });
-        
+
         // Update change when paid amount changes
         $('#paid-amount').on('input', function() {
             updateTotals();
         });
-        
+
         // Process payment
         $('#process-payment').click(function() {
             if (cartItems.length === 0) {
@@ -624,7 +642,7 @@
                 });
                 return;
             }
-            
+
             const subtotal = calculateSubtotal();
             const discount = parseFloat($('#discount').val()) || 0;
             const tax = calculateTax(subtotal);
@@ -632,7 +650,7 @@
             const paidAmount = parseFloat($('#paid-amount').val()) || 0;
             const paymentType = $('#payment-type').val();
             const customerName = $('#customer-name').val();
-            
+
             if (paidAmount < total && paymentType === 'tunai') {
                 Swal.fire({
                     icon: 'error',
@@ -641,13 +659,14 @@
                 });
                 return;
             }
-            
+
             // Prepare data for submission
             const data = {
                 store_id: {{ Auth::user()->store_id ?? 1 }}, // Default to 1 if store_id not set
                 payment_type: paymentType,
                 customer_name: customerName,
                 discount: discount,
+                tax_enabled: taxEnabled, // Tambahkan flag tax_enabled
                 tax: tax,
                 total_amount: total,
                 total_payment: paidAmount,
@@ -662,7 +681,7 @@
                     is_processed: item.is_processed
                 }))
             };
-            
+
             // Submit data to server
             $.ajax({
                 url: "{{ route('pos.process') }}",
@@ -679,13 +698,15 @@
                         $('#success-change').text("Rp " + formatNumber(paidAmount - total > 0 ? paidAmount - total : 0));
                         $('#print-receipt').attr('href', response.receipt_url);
                         $('#payment-success-modal').modal('show');
-                        
+
                         // Clear cart for new sale
                         cartItems = [];
                         updateCartTable();
                         $('#discount').val(0);
                         $('#paid-amount').val(0);
                         $('#customer-name').val('');
+                        $('#tax-enabled').prop('checked', false);
+                        taxEnabled = false;
                     } else {
                         Swal.fire({
                             icon: 'error',
