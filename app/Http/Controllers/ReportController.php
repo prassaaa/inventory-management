@@ -827,4 +827,118 @@ public function payables(Request $request)
             'overdueTotalAmount'
         ));
     }
+
+    /**
+     * Display balance sheet report (neraca)
+     */
+    public function balanceSheet(Request $request)
+    {
+        $date = $request->input('date', now()->format('Y-m-d'));
+
+        // --- AKTIVA (ASSETS) ---
+
+        // Aktiva Lancar (Current Assets)
+
+        // 1. Kas & Setara Kas
+        $cash = 0; // Implementasi: Ambil dari saldo kas
+
+        // 2. Piutang Dagang
+        $accountsReceivable = AccountReceivable::where('status', '!=', 'paid')
+                            ->where('due_date', '>=', $date)
+                            ->sum(DB::raw('amount - paid_amount'));
+
+        // 3. Persediaan Barang
+        $inventory = DB::table('stock_warehouses')
+                    ->join('products', 'stock_warehouses.product_id', '=', 'products.id')
+                    ->sum(DB::raw('stock_warehouses.quantity * products.purchase_price'));
+
+        // Total Aktiva Lancar
+        $totalCurrentAssets = $cash + $accountsReceivable + $inventory;
+
+        // Aktiva Tetap (Fixed Assets)
+        // Implementasi: Jika ada data aktiva tetap di sistem
+        $fixedAssets = 0;
+        $accumulatedDepreciation = 0;
+        $netFixedAssets = $fixedAssets - $accumulatedDepreciation;
+
+        // Total Aktiva
+        $totalAssets = $totalCurrentAssets + $netFixedAssets;
+
+        // --- PASIVA (LIABILITIES & EQUITY) ---
+
+        // Kewajiban Lancar (Current Liabilities)
+
+        // 1. Hutang Dagang
+        $accountsPayable = AccountPayable::where('status', '!=', 'paid')
+                        ->where('due_date', '>=', $date)
+                        ->sum(DB::raw('amount - paid_amount'));
+
+        // 2. Hutang Pajak (jika ada)
+        $taxPayable = 0;
+
+        // Total Kewajiban Lancar
+        $totalCurrentLiabilities = $accountsPayable + $taxPayable;
+
+        // Kewajiban Jangka Panjang (jika ada)
+        $longTermLiabilities = 0;
+
+        // Total Kewajiban
+        $totalLiabilities = $totalCurrentLiabilities + $longTermLiabilities;
+
+        // Ekuitas (Equity)
+        // Implementasi: Ambil modal awal dan laba ditahan
+        $initialCapital = 0; // Modal awal
+
+        // Laba tahun berjalan
+        $startOfYear = Carbon::parse($date)->startOfYear()->format('Y-m-d');
+
+        // Pendapatan
+        $revenue = Sale::whereBetween('date', [$startOfYear, $date])
+                ->sum('total_amount');
+
+        // Harga Pokok Penjualan
+        $costOfGoodsSold = SaleDetail::join('products', 'sale_details.product_id', '=', 'products.id')
+                        ->whereHas('sale', function($q) use ($startOfYear, $date) {
+                            $q->whereBetween('date', [$startOfYear, $date]);
+                        })
+                        ->sum(DB::raw('sale_details.quantity * products.purchase_price'));
+
+        // Beban Operasional
+        $operatingExpenses = Expense::whereBetween('date', [$startOfYear, $date])
+                            ->sum('amount');
+
+        // Laba Bersih
+        $netIncome = $revenue - $costOfGoodsSold - $operatingExpenses;
+
+        // Total Ekuitas
+        $totalEquity = $initialCapital + $netIncome;
+
+        // Total Pasiva
+        $totalLiabilitiesAndEquity = $totalLiabilities + $totalEquity;
+
+        // Perbedaan (seharusnya 0 jika balance)
+        $difference = $totalAssets - $totalLiabilitiesAndEquity;
+
+        return view('reports.balance-sheet', compact(
+            'date',
+            'cash',
+            'accountsReceivable',
+            'inventory',
+            'totalCurrentAssets',
+            'fixedAssets',
+            'accumulatedDepreciation',
+            'netFixedAssets',
+            'totalAssets',
+            'accountsPayable',
+            'taxPayable',
+            'totalCurrentLiabilities',
+            'longTermLiabilities',
+            'totalLiabilities',
+            'initialCapital',
+            'netIncome',
+            'totalEquity',
+            'totalLiabilitiesAndEquity',
+            'difference'
+        ));
+    }
 }

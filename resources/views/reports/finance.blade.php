@@ -12,6 +12,9 @@
             <p class="text-muted">Analisis pendapatan, pengeluaran, dan laba perusahaan</p>
         </div>
         <div>
+            <a href="{{ route('reports.balance-sheet') }}" class="btn btn-primary me-2">
+                <i class="fas fa-balance-scale me-1"></i> Laporan Neraca
+            </a>
             <a href="{{ route('reports.finance.export', request()->query()) }}" class="btn btn-success">
                 <i class="fas fa-file-excel me-1"></i> Export Excel
             </a>

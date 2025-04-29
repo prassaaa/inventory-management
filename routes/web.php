@@ -186,6 +186,9 @@ Route::middleware(['auth'])->group(function () {
             // Rute Laporan Hutang dan Piutang - BAGIAN BARU
             Route::get('/payables', [ReportController::class, 'payables'])->name('payables');
             Route::get('/receivables', [ReportController::class, 'receivables'])->name('receivables');
+
+            // Laporan Neraca - BAGIAN BARU
+            Route::get('/balance-sheet', [ReportController::class, 'balanceSheet'])->name('balance-sheet');
         });
     });
 
