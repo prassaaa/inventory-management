@@ -246,6 +246,14 @@
                     <i class="fas fa-coins me-2 text-primary small"></i> Laporan Keuangan
                 </a>
 
+                <a href="{{ route('reports.payables') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.payables') ? 'active-submenu' : '' }}">
+                    <i class="fas fa-file-invoice-dollar me-2 text-primary small"></i> Hutang ke Pemasok
+                </a>
+
+                <a href="{{ route('reports.receivables') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.receivables') ? 'active-submenu' : '' }}">
+                    <i class="fas fa-hand-holding-usd me-2 text-primary small"></i> Piutang dari Toko
+                </a>
+
                 <a href="{{ route('reports.profit-loss') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.profit-loss') ? 'active-submenu' : '' }}">
                     <i class="fas fa-dollar-sign me-2 text-primary small"></i> Laporan Laba/Rugi
                 </a>

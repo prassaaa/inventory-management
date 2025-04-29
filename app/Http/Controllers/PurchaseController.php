@@ -10,6 +10,7 @@ use App\Models\Unit;
 use App\Models\StockWarehouse;
 use App\Models\User;
 use App\Models\Notification;
+use App\Models\AccountPayable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -98,6 +99,21 @@ class PurchaseController extends Controller
                     'quantity' => $quantity,
                     'price' => $price,
                     'subtotal' => $quantity * $price,
+                ]);
+            }
+
+            // Cek apakah pembelian menggunakan metode tempo (kredit)
+            if ($validated['payment_type'] === 'tempo') {
+                // Buat catatan hutang ke pemasok
+                AccountPayable::create([
+                    'purchase_id' => $purchase->id,
+                    'supplier_id' => $validated['supplier_id'],
+                    'amount' => $validated['total_amount'],
+                    'due_date' => $validated['due_date'],
+                    'status' => 'unpaid',
+                    'paid_amount' => 0,
+                    'notes' => 'Hutang dari pembelian invoice ' . $validated['invoice_number'],
+                    'created_by' => Auth::id(),
                 ]);
             }
 
@@ -204,6 +220,25 @@ class PurchaseController extends Controller
                 ]);
             }
 
+            // Update atau hapus catatan hutang sesuai dengan metode pembayaran
+            if ($validated['payment_type'] === 'tempo') {
+                // Update atau buat catatan hutang
+                AccountPayable::updateOrCreate(
+                    ['purchase_id' => $purchase->id],
+                    [
+                        'supplier_id' => $validated['supplier_id'],
+                        'amount' => $validated['total_amount'],
+                        'due_date' => $validated['due_date'],
+                        'status' => 'unpaid',
+                        'notes' => 'Hutang dari pembelian invoice ' . $validated['invoice_number'] . ' (updated)',
+                        'updated_by' => Auth::id(),
+                    ]
+                );
+            } else {
+                // Jika diubah dari tempo ke tunai, hapus catatan hutang
+                AccountPayable::where('purchase_id', $purchase->id)->delete();
+            }
+
             DB::commit();
 
             return redirect()->route('purchases.show', $purchase)
@@ -230,6 +265,9 @@ class PurchaseController extends Controller
 
             // Delete purchase details
             $purchase->purchaseDetails()->delete();
+
+            // Delete any associated account payable
+            AccountPayable::where('purchase_id', $purchase->id)->delete();
 
             // Delete purchase
             $purchase->delete();
@@ -298,5 +336,17 @@ class PurchaseController extends Controller
             return redirect()->route('purchases.show', $purchase)
                 ->with('error', 'Error confirming purchase: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Generate purchase receipt in PDF
+     */
+    public function receipt(Purchase $purchase)
+    {
+        $purchase->load(['supplier', 'purchaseDetails.product', 'purchaseDetails.unit', 'creator']);
+
+        $pdf = PDF::loadView('purchases.receipt', compact('purchase'));
+
+        return $pdf->stream('purchase_' . $purchase->invoice_number . '.pdf');
     }
 }

@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Store;
 use App\Models\Unit;
 use App\Models\StockStore;
+use App\Models\AccountReceivable; // Tambahkan import untuk AccountReceivable
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -75,6 +76,8 @@ class BackOfficeStoreOrderController extends Controller
             'unit_id.*' => 'required|exists:units,id',
             'quantity' => 'required|array',
             'quantity.*' => 'required|numeric|min:1',
+            'payment_type' => 'required|in:cash,credit', // Tambahkan validasi metode pembayaran
+            'due_date' => 'required_if:payment_type,credit|nullable|date', // Tambahkan validasi jatuh tempo
         ]);
 
         DB::beginTransaction();
@@ -85,12 +88,15 @@ class BackOfficeStoreOrderController extends Controller
                 'order_number' => 'ORD-' . date('YmdHis'),
                 'date' => now(),
                 'status' => StoreOrder::STATUS_PENDING,
+                'payment_type' => $request->payment_type, // Tambahkan metode pembayaran
+                'due_date' => $request->payment_type === 'credit' ? $request->due_date : null, // Tambahkan jatuh tempo
                 'note' => $request->note,
                 'created_by' => Auth::id(),
                 'updated_by' => Auth::id(),
             ]);
 
-            // Tambahkan detail pesanan
+            // Tambahkan detail pesanan dan hitung total amount
+            $totalAmount = 0;
             foreach ($request->product_id as $index => $productId) {
                 if ($request->quantity[$index] > 0) {
                     // Dapatkan harga produk berdasarkan unit
@@ -99,6 +105,8 @@ class BackOfficeStoreOrderController extends Controller
                         ->first();
 
                     $price = $productUnit ? $productUnit->purchase_price : Product::find($productId)->purchase_price;
+                    $subtotal = $price * $request->quantity[$index];
+                    $totalAmount += $subtotal;
 
                     StoreOrderDetail::create([
                         'store_order_id' => $storeOrder->id,
@@ -106,9 +114,29 @@ class BackOfficeStoreOrderController extends Controller
                         'unit_id' => $request->unit_id[$index],
                         'quantity' => $request->quantity[$index],
                         'price' => $price,
-                        'subtotal' => $price * $request->quantity[$index],
+                        'subtotal' => $subtotal,
                     ]);
                 }
+            }
+
+            // Update total amount
+            $storeOrder->update([
+                'total_amount' => $totalAmount
+            ]);
+
+            // Cek apakah pemesanan menggunakan metode kredit
+            if ($request->payment_type === 'credit') {
+                // Buat catatan piutang dari toko
+                AccountReceivable::create([
+                    'store_order_id' => $storeOrder->id,
+                    'store_id' => Auth::user()->store_id,
+                    'amount' => $totalAmount,
+                    'due_date' => $request->due_date,
+                    'status' => 'unpaid',
+                    'paid_amount' => 0,
+                    'notes' => 'Piutang dari pesanan nomor ' . $storeOrder->order_number,
+                    'created_by' => Auth::id(),
+                ]);
             }
 
             // Kirim notifikasi ke admin pusat
@@ -238,6 +266,19 @@ class BackOfficeStoreOrderController extends Controller
                     $stockStore->quantity = ($stockStore->quantity ?? 0) + $detail->quantity;
                     $stockStore->save();
                 }
+            }
+
+            // Update piutang jika pesanan menggunakan metode kredit
+            $receivable = AccountReceivable::where('store_order_id', $storeOrder->id)->first();
+            if ($receivable && $storeOrder->payment_type === 'cash') {
+                // Jika metode pembayaran tunai, tandai piutang sebagai lunas
+                $receivable->update([
+                    'status' => 'paid',
+                    'paid_amount' => $receivable->amount,
+                    'payment_date' => Carbon::now(),
+                    'notes' => $receivable->notes . "\n" . date('d/m/Y') . ": Dibayar tunai pada saat pengiriman",
+                    'updated_by' => Auth::id(),
+                ]);
             }
 
             DB::commit();

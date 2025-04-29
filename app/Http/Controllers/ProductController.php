@@ -16,6 +16,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
 use App\Models\Store;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {

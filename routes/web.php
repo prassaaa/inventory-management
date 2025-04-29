@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\BackOfficeStoreOrderController;
 use App\Http\Controllers\Store\StoreClientOrderController;
 use App\Http\Controllers\Warehouse\WarehouseOrderController;
 use App\Http\Controllers\Warehouse\WarehousePurchaseController;
+use App\Http\Controllers\FinanceController; // Menambahkan import untuk FinanceController
 
 /*
 |--------------------------------------------------------------------------
@@ -120,6 +121,12 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('store-returns', StoreReturnController::class);
     });
 
+    // Finance Management - BAGIAN BARU
+    Route::group(['middleware' => ['permission:view financial reports']], function () {
+        Route::post('/finance/record-payment', [FinanceController::class, 'recordPayment'])->name('finance.record-payment');
+        Route::post('/finance/record-receivable-payment', [FinanceController::class, 'recordReceivablePayment'])->name('finance.record-receivable-payment');
+    });
+
     // Sales (POS)
     Route::group(['middleware' => ['permission:view sales']], function () {
         Route::resource('sales', SaleController::class)->except(['edit', 'update', 'destroy']);
@@ -175,6 +182,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
             Route::get('/finance/export', [ReportController::class, 'exportFinance'])->name('finance.export');
             Route::get('/profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
+
+            // Rute Laporan Hutang dan Piutang - BAGIAN BARU
+            Route::get('/payables', [ReportController::class, 'payables'])->name('payables');
+            Route::get('/receivables', [ReportController::class, 'receivables'])->name('receivables');
         });
     });
 

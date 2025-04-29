@@ -51,7 +51,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-filter me-1"></i> Filter
@@ -134,6 +134,75 @@
         </div>
     </div>
 
+    <!-- Cards for Payables and Receivables reports - BAGIAN BARU -->
+    <div class="row mt-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 fw-bold text-primary">Laporan Hutang ke Pemasok</h6>
+                    <a href="{{ route('reports.payables') }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-arrow-right"></i> Lihat Detail
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="icon-circle bg-primary text-white me-3">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0">Hutang ke Pemasok</h5>
+                            <p class="text-muted small mb-0">Menampilkan daftar hutang yang belum dibayar ke pemasok</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col">
+                            <h6 class="small text-muted">Total Hutang</h6>
+                            <h5 class="mb-0 text-primary">Rp {{ number_format($totalPayables ?? 0, 0, ',', '.') }}</h5>
+                        </div>
+                        <div class="col">
+                            <h6 class="small text-muted">Hutang Jatuh Tempo</h6>
+                            <h5 class="mb-0 text-danger">Rp {{ number_format($overduePayables ?? 0, 0, ',', '.') }}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 fw-bold text-primary">Laporan Piutang dari Toko</h6>
+                    <a href="{{ route('reports.receivables') }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-arrow-right"></i> Lihat Detail
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="icon-circle bg-success text-white me-3">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0">Piutang dari Toko</h5>
+                            <p class="text-muted small mb-0">Menampilkan daftar piutang yang belum dibayar dari toko</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col">
+                            <h6 class="small text-muted">Total Piutang</h6>
+                            <h5 class="mb-0 text-success">Rp {{ number_format($totalReceivables ?? 0, 0, ',', '.') }}</h5>
+                        </div>
+                        <div class="col">
+                            <h6 class="small text-muted">Piutang Jatuh Tempo</h6>
+                            <h5 class="mb-0 text-danger">Rp {{ number_format($overdueReceivables ?? 0, 0, ',', '.') }}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-xl-8 col-lg-7">
             <div class="card shadow mb-4">
@@ -147,7 +216,7 @@
                 </div>
             </div>
         </div>
-                
+
         <div class="col-xl-4 col-lg-5">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
@@ -182,7 +251,7 @@
                                 <td><strong>Total Pendapatan</strong></td>
                                 <td class="text-end"><strong>Rp {{ number_format($sales, 0, ',', '.') }}</strong></td>
                             </tr>
-                            
+
                             <tr class="table-danger">
                                 <th colspan="2">Pengeluaran</th>
                             </tr>
@@ -198,7 +267,7 @@
                                 <td><strong>Total Pengeluaran</strong></td>
                                 <td class="text-end"><strong>Rp {{ number_format($purchases + $expenses, 0, ',', '.') }}</strong></td>
                             </tr>
-                            
+
                             <tr class="table-success">
                                 <th>Laba Kotor</th>
                                 <td class="text-end"><strong>Rp {{ number_format($grossProfit, 0, ',', '.') }}</strong></td>
@@ -212,7 +281,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-6">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
@@ -346,7 +415,7 @@
                 }
             }
         });
-        
+
         // Expense Categories Chart
         var ctx2 = document.getElementById("expenseCategoriesChart");
         var expenseCategoriesChart = new Chart(ctx2, {
