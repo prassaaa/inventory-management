@@ -62,7 +62,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-filter me-1"></i> Filter
@@ -141,7 +141,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-4">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
@@ -238,7 +238,7 @@
                                     {{ $product->product->category->name }}
                                 </span>
                             </td>
-                            <td>{{ $product->total_quantity }} {{ $product->product->baseUnit->name }}</td>
+                            <td>{{ intval($product->total_quantity) }} {{ $product->product->baseUnit->name }}</td>
                             <td>Rp {{ number_format($product->total_amount, 0, ',', '.') }}</td>
                         </tr>
                         @endforeach
@@ -257,7 +257,7 @@
         if ($.fn.dataTable.isDataTable('#salesTable')) {
             $('#salesTable').DataTable().destroy();
         }
-        
+
         // Inisialisasi DataTable baru
         var salesTable = $('#salesTable').DataTable({
             language: {
@@ -269,12 +269,12 @@
             order: [[0, 'desc']],
             destroy: true // Pastikan opsi destroy diaktifkan
         });
-        
+
         // Custom search untuk tabel penjualan
         $('#customSearch').keyup(function() {
             salesTable.search($(this).val()).draw();
         });
-        
+
         // Inisialisasi tabel produk terlaris
         $('#topProductsTable').DataTable({
             language: {
@@ -286,7 +286,7 @@
             responsive: true,
             destroy: true
         });
-        
+
         // Sales Chart
         var ctx = document.getElementById("salesChart");
         var salesChart = new Chart(ctx, {
@@ -337,7 +337,7 @@
                 }
             }
         });
-        
+
         // Payment Methods Chart
         var ctx2 = document.getElementById("paymentMethodsChart");
         var paymentMethodsChart = new Chart(ctx2, {
@@ -365,7 +365,7 @@
                 }
             }
         });
-        
+
         // Initialize tooltips
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {

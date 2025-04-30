@@ -10,11 +10,11 @@ class Sale extends Model
     use HasFactory;
 
     protected $fillable = [
-        'store_id', 'invoice_number', 'date', 'customer_name', 'total_amount', 
-        'payment_type', 'discount', 'tax', 'total_payment', 'change', 'status', 
+        'store_id', 'invoice_number', 'date', 'customer_name', 'total_amount',
+        'payment_type', 'discount', 'tax', 'tax_enabled', 'total_payment', 'change', 'status',
         'created_by', 'updated_by'
     ];
-    
+
     protected $casts = [
         'date' => 'date',
     ];

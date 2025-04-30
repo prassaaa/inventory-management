@@ -92,7 +92,7 @@ class SaleController extends Controller
             'sale.payment_type' => 'required|in:tunai,non_tunai',
             'sale.customer_name' => 'nullable|string|max:255',
             'sale.discount' => 'required|numeric|min:0',
-            'sale.tax_enabled' => 'nullable|boolean',
+            'sale.tax_enabled' => 'required|boolean', // Changed from nullable to required
             'sale.tax' => 'required|numeric|min:0',
             'sale.total_amount' => 'required|numeric|min:0',
             'sale.total_payment' => 'required|numeric|min:0',
@@ -120,7 +120,7 @@ class SaleController extends Controller
             $storeCode = Store::find($saleData['store_id'])->name[0] ?? 'S';
             $invoiceNumber = 'INV/' . $storeCode . '/' . date('Ymd') . '/' . sprintf('%04d', $lastSale ? (int)substr($lastSale->invoice_number, -4) + 1 : 1);
 
-            // Create sale
+            // Create sale with tax_enabled field
             $sale = Sale::create([
                 'store_id' => $saleData['store_id'],
                 'invoice_number' => $invoiceNumber,
@@ -130,6 +130,7 @@ class SaleController extends Controller
                 'payment_type' => $saleData['payment_type'],
                 'discount' => $saleData['discount'],
                 'tax' => $saleData['tax'],
+                'tax_enabled' => $saleData['tax_enabled'], // Added this field
                 'total_payment' => $saleData['total_payment'],
                 'change' => $saleData['change'],
                 'status' => 'paid',
@@ -239,8 +240,11 @@ class SaleController extends Controller
     {
         $sale->load(['store', 'creator', 'saleDetails.product', 'saleDetails.unit']);
 
+        // Create a safe filename by replacing slashes with underscores
+        $safeFilename = str_replace(['/', '\\'], '_', $sale->invoice_number);
+
         $pdf = PDF::loadView('sales.receipt', compact('sale'))->setPaper([0, 0, 226.77, 650], 'portrait');
 
-        return $pdf->stream('sale_' . $sale->invoice_number . '.pdf');
+        return $pdf->stream('sale_' . $safeFilename . '.pdf');
     }
 }

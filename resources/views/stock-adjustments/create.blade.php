@@ -34,7 +34,7 @@
                             @enderror
                         </div>
                     </div>
-                    
+
                     <div class="col-md-4">
                         <div class="form-group mb-3">
                             <label for="reference" class="form-label">Referensi <span class="text-danger">*</span></label>
@@ -45,21 +45,32 @@
                             @enderror
                         </div>
                     </div>
-                    
+
                     <div class="col-md-4">
                         <div class="form-group mb-3">
                             <label for="type" class="form-label">Tipe <span class="text-danger">*</span></label>
-                            <select class="form-select @error('type') is-invalid @enderror" id="type" name="type" required>
-                                <option value="warehouse" {{ old('type') === 'warehouse' ? 'selected' : '' }}>Gudang</option>
-                                <option value="store" {{ old('type') === 'store' ? 'selected' : '' }}>Toko</option>
-                            </select>
-                            @error('type')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
+                            @if($userHasStore)
+                                <!-- Jika user adalah cabang tertentu, tampilkan sebagai input tersembunyi dan text statis -->
+                                <input type="hidden" name="type" value="store">
+                                <input type="hidden" name="store_id" value="{{ $userStoreId }}">
+                                <div class="form-control bg-light">Toko - {{ optional($stores->where('id', $userStoreId)->first())->name }}</div>
+                                <small class="form-text text-muted">Anda hanya dapat melakukan penyesuaian di toko Anda</small>
+                            @else
+                                <!-- Jika user adalah admin pusat, tampilkan semua pilihan -->
+                                <select class="form-select @error('type') is-invalid @enderror" id="type" name="type" required>
+                                    <option value="warehouse" {{ old('type') === 'warehouse' ? 'selected' : '' }}>Gudang</option>
+                                    <option value="store" {{ old('type') === 'store' ? 'selected' : '' }}>Toko Tunggal</option>
+                                    <option value="all_stores" {{ old('type') === 'all_stores' ? 'selected' : '' }}>Semua Toko</option>
+                                </select>
+                                @error('type')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            @endif
                         </div>
                     </div>
                 </div>
-                
+
+                @if(!$userHasStore)
                 <div id="store-selection" class="form-group mb-3 {{ old('type') === 'store' ? '' : 'd-none' }}">
                     <label for="store_id" class="form-label">Toko <span class="text-danger">*</span></label>
                     <select class="form-select @error('store_id') is-invalid @enderror" id="store_id" name="store_id" {{ old('type') === 'store' ? 'required' : '' }}>
@@ -74,6 +85,7 @@
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
+                @endif
 
                 <hr class="my-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -82,14 +94,14 @@
                     </h5>
                     <div class="form-text text-muted">Tambahkan produk yang akan disesuaikan stoknya</div>
                 </div>
-                
+
                 <div class="mb-3">
                     <div class="input-group">
                         <select class="form-select select2" id="product-search" style="width: 85%;">
                             <option value="">Cari Produk</option>
                             @foreach($products as $product)
-                                <option value="{{ $product->id }}" 
-                                        data-code="{{ $product->code }}" 
+                                <option value="{{ $product->id }}"
+                                        data-code="{{ $product->code }}"
                                         data-name="{{ $product->name }}"
                                         data-base-unit-id="{{ $product->base_unit_id }}"
                                         data-base-unit-name="{{ $product->baseUnit->name }}">
@@ -152,7 +164,7 @@
                         </tbody>
                     </table>
                 </div>
-                
+
                 <div class="card mb-0 mt-4">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
@@ -179,8 +191,8 @@
             theme: "bootstrap-5",
             width: '100%'
         });
-        
-        // Show/hide store selection based on type
+
+        // Show/hide store selection based on type (hanya untuk admin pusat)
         $('#type').change(function() {
             if ($(this).val() === 'store') {
                 $('#store-selection').removeClass('d-none');
@@ -190,15 +202,15 @@
                 $('#store_id').prop('required', false);
             }
         });
-        
+
         // Product counter
         let productCounter = {{ old('product_ids') ? count(old('product_ids')) : 0 }};
-        
+
         // Add product to table
         $('#add-product').click(function() {
             const productSelect = $('#product-search');
             const productId = productSelect.val();
-            
+
             if (!productId) {
                 Swal.fire({
                     icon: 'warning',
@@ -207,12 +219,12 @@
                 });
                 return;
             }
-            
+
             const productOption = productSelect.find(':selected');
             const productName = productOption.data('name');
             const unitId = productOption.data('base-unit-id');
             const unitName = productOption.data('base-unit-name');
-            
+
             // Check if product already exists in table
             let exists = false;
             $('input[name="product_ids[]"]').each(function() {
@@ -221,7 +233,7 @@
                     return false;
                 }
             });
-            
+
             if (exists) {
                 Swal.fire({
                     icon: 'warning',
@@ -230,10 +242,10 @@
                 });
                 return;
             }
-            
+
             // Remove empty row if exists
             $('#empty-products-row').remove();
-            
+
             // Add product to table
             const newRow = `
                 <tr class="fade-in">
@@ -262,31 +274,31 @@
                     </td>
                 </tr>
             `;
-            
+
             $('#products-table tbody').append(newRow);
-            
+
             // Reset product select
             productSelect.val('').trigger('change');
-            
+
             productCounter++;
         });
-        
+
         // Remove product from table
         $(document).on('click', '.remove-product', function() {
             const row = $(this).closest('tr');
-            
+
             // Animasi penghapusan
             row.addClass('bg-danger-light');
             row.fadeOut(300, function() {
                 $(this).remove();
-                
+
                 // Check if table is empty
                 if ($('#products-table tbody tr').length === 0) {
                     $('#products-table tbody').append('<tr id="empty-products-row"><td colspan="6" class="text-center py-3 text-muted">Belum ada produk ditambahkan</td></tr>');
                 }
             });
         });
-        
+
         // Validate form before submission
         $('#adjustment-form').on('submit', function(e) {
             if ($('#products-table tbody tr').length === 0 || $('#products-table tbody tr#empty-products-row').length > 0) {
@@ -298,7 +310,9 @@
                 });
                 return false;
             }
-            
+
+            // Hanya periksa store_id jika admin pusat dan tipe = store
+            @if(!$userHasStore)
             if ($('#type').val() === 'store' && !$('#store_id').val()) {
                 e.preventDefault();
                 Swal.fire({
@@ -308,7 +322,28 @@
                 });
                 return false;
             }
-            
+
+            // Konfirmasi jika memilih semua toko
+            if ($('#type').val() === 'all_stores') {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Konfirmasi Penyesuaian Semua Toko',
+                    text: 'Anda akan melakukan penyesuaian stok untuk SEMUA toko sekaligus. Lanjutkan?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Lanjutkan',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $(this).off('submit').submit();
+                    }
+                });
+                return false;
+            }
+            @endif
+
             return true;
         });
     });

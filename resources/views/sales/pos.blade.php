@@ -451,6 +451,17 @@
             }
         });
 
+        // Set "Menu Store" as default category - MODIFIED
+        // Find and click the Menu Store category pill
+        setTimeout(function() {
+            // Hapus class active dari semua pill kategori terlebih dahulu
+            $('.category-pill').removeClass('active');
+
+            // Cari category-pill kedua (Menu Store) dan klik secara otomatis
+            // Pastikan ini sesuai dengan urutan yang Anda inginkan
+            $('.category-pill:eq(1)').addClass('active').trigger('click');
+        }, 100);
+
         // Search products
         $('#search-product').on('input', function() {
             const searchTerm = $(this).val().toLowerCase();
@@ -513,7 +524,7 @@
             const productPrice = parseFloat(product.data('price'));
             const unitId = product.data('unit-id');
             const unitName = product.data('unit-name');
-            const isProcessed = product.data('is-processed') === 'true';
+            const isProcessed = product.data('is-processed') === 'true' ? 1 : 0; // Use 1/0 instead of true/false
 
             // For processed products, show ingredients first if showIngredients is true
             if (isProcessed && showIngredients) {
@@ -660,27 +671,37 @@
                 return;
             }
 
-            // Prepare data for submission
+            // Prepare data for submission with proper taxEnabled value
+            const taxEnabledValue = taxEnabled ? 1 : 0; // Convert to 1/0 instead of true/false
+
+            // Deep copy and modify cart items to ensure proper is_processed value format
+            const itemsForSubmission = cartItems.map(item => ({
+                product_id: item.product_id,
+                unit_id: item.unit_id,
+                quantity: item.quantity,
+                price: item.price,
+                discount: 0, // Individual item discount not implemented in this UI
+                subtotal: item.quantity * item.price,
+                is_processed: item.is_processed ? 1 : 0 // Ensure it's 1/0 not true/false
+            }));
+
             const data = {
                 store_id: {{ Auth::user()->store_id ?? 1 }}, // Default to 1 if store_id not set
                 payment_type: paymentType,
                 customer_name: customerName,
                 discount: discount,
-                tax_enabled: taxEnabled, // Tambahkan flag tax_enabled
+                tax_enabled: taxEnabledValue, // Send as 1 or 0
                 tax: tax,
                 total_amount: total,
                 total_payment: paidAmount,
                 change: paidAmount - total > 0 ? paidAmount - total : 0,
-                items: cartItems.map(item => ({
-                    product_id: item.product_id,
-                    unit_id: item.unit_id,
-                    quantity: item.quantity,
-                    price: item.price,
-                    discount: 0, // Individual item discount not implemented in this UI
-                    subtotal: item.quantity * item.price,
-                    is_processed: item.is_processed
-                }))
+                items: itemsForSubmission
             };
+
+            // Log data sebelum kirim untuk debug
+            console.log("Processing payment with data:", data);
+            console.log("tax_enabled type:", typeof data.tax_enabled, "value:", data.tax_enabled);
+            console.log("First item is_processed:", typeof data.items[0].is_processed, "value:", data.items[0].is_processed);
 
             // Submit data to server
             $.ajax({
@@ -717,13 +738,37 @@
                 },
                 error: function(xhr) {
                     let errorMessage = 'Terjadi kesalahan saat memproses penjualan.';
+
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMessage = xhr.responseJSON.message;
                     }
+
+                    // Tampilkan detail error untuk debugging
+                    console.error("Error details:", xhr.responseJSON);
+
+                    // Show error specific to validation if available
+                    if (xhr.responseJSON && xhr.responseJSON.errors) {
+                        const validationErrors = xhr.responseJSON.errors;
+                        console.error("Validation errors:", validationErrors);
+
+                        // Create a more detailed error message
+                        const errorMessages = [];
+                        for (const field in validationErrors) {
+                            errorMessages.push(validationErrors[field][0]);
+                        }
+
+                        if (errorMessages.length > 0) {
+                            errorMessage = errorMessages.join("\n");
+                        }
+                    }
+
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal',
-                        text: errorMessage
+                        text: errorMessage,
+                        customClass: {
+                            content: 'text-start'
+                        }
                     });
                 }
             });

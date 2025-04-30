@@ -26,7 +26,7 @@ class StockController extends Controller
             })
             ->orderBy('products.name')
             ->get();
-        
+
         return view('stock.warehouse', compact('products'));
     }
 
@@ -35,14 +35,21 @@ class StockController extends Controller
      */
     public function store()
     {
-    $stores = Store::where('is_active', true)->get();
-    $selectedStore = request('store_id') ? Store::findOrFail(request('store_id')) : $stores->first();
-    
-    $query = StockStore::with(['product.category', 'product.baseUnit', 'unit'])
-               ->where('store_id', $selectedStore->id ?? 0);
-               
-    $products = $query->get();
-    
-    return view('stock.store', compact('stores', 'selectedStore', 'products'));
+        $stores = Store::where('is_active', true)->get();
+
+        // Jika user memiliki store_id (pengguna cabang), gunakan store tersebut
+        if (Auth::user()->store_id) {
+            $selectedStore = Store::findOrFail(Auth::user()->store_id);
+        } else {
+            // Jika user adalah admin pusat, gunakan store dari request atau default ke store pertama
+            $selectedStore = request('store_id') ? Store::findOrFail(request('store_id')) : $stores->first();
+        }
+
+        $query = StockStore::with(['product.category', 'product.baseUnit', 'unit'])
+                   ->where('store_id', $selectedStore->id ?? 0);
+
+        $products = $query->get();
+
+        return view('stock.store', compact('stores', 'selectedStore', 'products'));
     }
 }

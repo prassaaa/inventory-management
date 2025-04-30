@@ -65,7 +65,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-6">
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex align-items-center">
@@ -146,7 +146,7 @@
                                     <span class="badge bg-danger-light text-danger rounded-pill px-2">Pengurangan</span>
                                 @endif
                             </td>
-                            <td>{{ $detail->quantity }}</td>
+                            <td>{{ intval($detail->quantity) }}</td>
                             <td>{{ $detail->unit->name }}</td>
                             <td>{{ $detail->reason ?: '-' }}</td>
                         </tr>
