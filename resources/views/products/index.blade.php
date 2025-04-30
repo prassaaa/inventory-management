@@ -67,7 +67,6 @@
                             <th>Stok</th>
                             <th>Sumber</th>
                             @if(request('source') == 'store')
-                            <th>Store</th>
                             <th>Jenis</th>
                             @endif
                             <th>Status</th>
@@ -104,11 +103,10 @@
                             </td>
                             <td>
                                 <span class="badge bg-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}-light text-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}">
-                                    {{ $product->store_source == 'pusat' ? 'Pusat' : 'Store' }}
+                                    {{ $product->store_source == 'pusat' ? 'Pusat' : 'Semua Store' }}
                                 </span>
                             </td>
                             @if(request('source') == 'store')
-                            <td>{{ $product->store->name ?? '-' }}</td>
                             <td>
                                 @if($product->is_processed)
                                 <span class="badge bg-warning-light text-warning">Olahan</span>
@@ -132,9 +130,9 @@
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     @endcan
-                                    
+
                                     @can('delete products')
-                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
                                             onclick="if(confirm('Apakah Anda yakin ingin menghapus produk {{ $product->name }}?')) { document.getElementById('delete-form-{{ $product->id }}').submit(); }">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -223,7 +221,7 @@
 <script>
     $(document).ready(function() {
     var dataTable;
-    
+
     // Cek apakah tabel sudah ada dan inisialisasi
     try {
         // Inisialisasi DataTable baru dengan cara yang lebih aman
@@ -261,7 +259,7 @@
             pageLength: 10
         });
     }
-    
+
     // Custom search dengan penanganan error
     $('#customSearch').keyup(function() {
         try {
@@ -270,12 +268,12 @@
             console.error("Error during search:", error);
         }
     });
-    
+
     // Delete confirmation
     $('.delete-btn').click(function() {
         var id = $(this).data('id');
         var name = $(this).data('name');
-        
+
         // Konfirmasi langsung dengan browser
         if (confirm('Apakah Anda yakin ingin menghapus produk "' + name + '"?')) {
             document.getElementById('delete-form-' + id).submit();
@@ -293,14 +291,14 @@
     } catch(error) {
         console.error("Error initializing tooltips:", error);
     }
-    
+
     // Format currency input (Rupiah)
     $('.money-format').each(function() {
         var value = $(this).val();
         if (value) {
             // Hapus semua karakter non-numerik
             value = value.replace(/[^\d]/g, '');
-            
+
             // Format dengan pemisah ribuan
             if (value !== '') {
                 value = parseInt(value).toLocaleString('id-ID');
@@ -308,29 +306,29 @@
             }
         }
     });
-    
+
     // Handle input untuk field dengan format uang
     $(document).on('input', '.money-format', function() {
         var value = $(this).val();
-        
+
         // Hapus semua karakter non-numerik
         value = value.replace(/[^\d]/g, '');
-        
+
         // Format dengan pemisah ribuan
         if (value !== '') {
             value = parseInt(value).toLocaleString('id-ID');
         }
-        
+
         // Update tampilan
         $(this).val(value);
-        
+
         // Simpan nilai asli ke hidden input jika ada
         var hiddenInput = $(this).attr('id') + '_real';
         if ($('#' + hiddenInput).length) {
             $('#' + hiddenInput).val(value.replace(/\./g, ''));
         }
     });
-    
+
     // Auto-calculate selling price with markup (for example: 20% markup)
     $('#purchase_price').on('input', function() {
         if (!$('#selling_price').val() || $('#selling_price').val() == '0') {
@@ -338,16 +336,16 @@
             purchasePrice = parseFloat(purchasePrice) || 0;
             var markup = 0.2; // 20% markup
             var sellingPrice = purchasePrice * (1 + markup);
-            
+
             // Format sellingPrice as currency
             sellingPrice = Math.round(sellingPrice).toLocaleString('id-ID');
             $('#selling_price').val(sellingPrice);
-            
+
             // Update hidden field
             $('#selling_price_real').val(sellingPrice.replace(/\./g, ''));
         }
     });
-    
+
     // Form submission - ensure hidden fields are updated
     $('form').on('submit', function() {
         $('.money-format').each(function() {
@@ -358,18 +356,18 @@
             }
         });
     });
-    
+
     // Add unit row if that function exists in your page
     if ($('#add-unit').length) {
         $('#add-unit').click(function() {
             var index = $('.unit-row').length;
             var unitOptions = '';
-            
+
             // Dapatkan opsi unit dari select unit pertama jika ada
             if ($('.unit-row:first select').length) {
                 unitOptions = $('.unit-row:first select').html();
             }
-            
+
             var newRow = `
                 <div class="row mb-3 unit-row align-items-center">
                     <div class="col-md-3">
@@ -381,7 +379,7 @@
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Nilai Konversi</label>
                         <div class="input-group">
-                            <input type="number" step="0.0001" class="form-control" name="additional_units[${index}][conversion_value]" 
+                            <input type="number" step="0.0001" class="form-control" name="additional_units[${index}][conversion_value]"
                                 placeholder="Konversi">
                             <span class="input-group-text">per satuan dasar</span>
                         </div>
@@ -390,7 +388,7 @@
                         <label class="form-label d-block d-md-none">Harga Beli</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control money-format" name="additional_units[${index}][purchase_price]" 
+                            <input type="text" class="form-control money-format" name="additional_units[${index}][purchase_price]"
                                 placeholder="Harga Beli" value="0">
                             <input type="hidden" name="additional_units[${index}][purchase_price_real]" value="0">
                         </div>
@@ -399,7 +397,7 @@
                         <label class="form-label d-block d-md-none">Harga Jual</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control money-format" name="additional_units[${index}][selling_price]" 
+                            <input type="text" class="form-control money-format" name="additional_units[${index}][selling_price]"
                                 placeholder="Harga Jual" value="0">
                             <input type="hidden" name="additional_units[${index}][selling_price_real]" value="0">
                         </div>
@@ -412,9 +410,9 @@
                     </div>
                 </div>
             `;
-            
+
             $('#additional-units').append(newRow);
-            
+
             // Inisialisasi Select2 untuk elemen baru
             try {
                 $('.select2-new').select2({
@@ -426,7 +424,7 @@
             } catch (error) {
                 console.error("Error initializing Select2:", error);
             }
-            
+
             // Inisialisasi format uang untuk input baru
             $('.money-format').each(function() {
                 var value = $(this).val();
@@ -436,7 +434,7 @@
                 }
             });
         });
-        
+
         // Remove unit row
         $(document).on('click', '.remove-unit', function() {
             $(this).closest('.unit-row').remove();

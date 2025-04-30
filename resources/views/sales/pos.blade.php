@@ -117,7 +117,75 @@
     </div>
 
     <div class="row">
-        <!-- Cart Section -->
+        <!-- Products Section (Moved to the left) -->
+        <div class="col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h6 class="m-0 fw-bold text-primary">
+                                <i class="fas fa-box me-1"></i> Produk
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-0">
+                                    <i class="fas fa-search text-primary"></i>
+                                </span>
+                                <input type="text" class="form-control border-0 bg-light" id="search-product" placeholder="Cari produk...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="category-pills mb-3">
+                        <div class="category-pill active" data-category="all">Semua Kategori</div>
+                        @foreach($categories as $category)
+                            <div class="category-pill" data-category="{{ $category->id }}">{{ $category->name }}</div>
+                        @endforeach
+                    </div>
+
+                    <div class="products-container">
+                        <div class="row" id="products-grid">
+                            @foreach($products as $product)
+                                <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
+                                    <div class="card product-card"
+                                        data-id="{{ $product->id }}"
+                                        data-code="{{ $product->code }}"
+                                        data-name="{{ $product->name }}"
+                                        data-price="{{ $product->selling_price }}"
+                                        data-unit-id="{{ $product->base_unit_id }}"
+                                        data-unit-name="{{ $product->baseUnit->name }}"
+                                        data-is-processed="{{ $product->is_processed ? 'true' : 'false' }}">
+                                        @if($product->is_processed)
+                                            <span class="processed-badge">
+                                                <i class="fas fa-mortar-pestle me-1"></i> Olahan
+                                            </span>
+                                        @endif
+                                        <div class="text-center">
+                                            @if($product->image)
+                                                <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="product-image">
+                                            @else
+                                                <div class="product-image d-flex align-items-center justify-content-center bg-light">
+                                                    <i class="fas fa-box fa-3x text-secondary"></i>
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="card-body p-2 text-center">
+                                            <h6 class="card-title mb-1 text-truncate">{{ $product->name }}</h6>
+                                            <p class="card-text text-primary fw-bold mb-0">Rp {{ number_format($product->selling_price, 0, ',', '.') }}</p>
+                                            <small class="text-muted">Stok: {{ $product->storeStock ? $product->storeStock->quantity : 0 }} {{ $product->baseUnit->name }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cart Section (Moved to the right) -->
         <div class="col-lg-5">
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center">
@@ -214,74 +282,6 @@
                                     <i class="fas fa-cash-register me-1"></i> Proses Pembayaran
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Products Section -->
-        <div class="col-lg-7">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <div class="row align-items-center">
-                        <div class="col-md-6">
-                            <h6 class="m-0 fw-bold text-primary">
-                                <i class="fas fa-box me-1"></i> Produk
-                            </h6>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="input-group">
-                                <span class="input-group-text bg-light border-0">
-                                    <i class="fas fa-search text-primary"></i>
-                                </span>
-                                <input type="text" class="form-control border-0 bg-light" id="search-product" placeholder="Cari produk...">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="category-pills mb-3">
-                        <div class="category-pill active" data-category="all">Semua Kategori</div>
-                        @foreach($categories as $category)
-                            <div class="category-pill" data-category="{{ $category->id }}">{{ $category->name }}</div>
-                        @endforeach
-                    </div>
-
-                    <div class="products-container">
-                        <div class="row" id="products-grid">
-                            @foreach($products as $product)
-                                <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
-                                    <div class="card product-card"
-                                        data-id="{{ $product->id }}"
-                                        data-code="{{ $product->code }}"
-                                        data-name="{{ $product->name }}"
-                                        data-price="{{ $product->selling_price }}"
-                                        data-unit-id="{{ $product->base_unit_id }}"
-                                        data-unit-name="{{ $product->baseUnit->name }}"
-                                        data-is-processed="{{ $product->is_processed ? 'true' : 'false' }}">
-                                        @if($product->is_processed)
-                                            <span class="processed-badge">
-                                                <i class="fas fa-mortar-pestle me-1"></i> Olahan
-                                            </span>
-                                        @endif
-                                        <div class="text-center">
-                                            @if($product->image)
-                                                <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="product-image">
-                                            @else
-                                                <div class="product-image d-flex align-items-center justify-content-center bg-light">
-                                                    <i class="fas fa-box fa-3x text-secondary"></i>
-                                                </div>
-                                            @endif
-                                        </div>
-                                        <div class="card-body p-2 text-center">
-                                            <h6 class="card-title mb-1 text-truncate">{{ $product->name }}</h6>
-                                            <p class="card-text text-primary fw-bold mb-0">Rp {{ number_format($product->selling_price, 0, ',', '.') }}</p>
-                                            <small class="text-muted">Stok: {{ $product->storeStock ? $product->storeStock->quantity : 0 }} {{ $product->baseUnit->name }}</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endforeach
                         </div>
                     </div>
                 </div>

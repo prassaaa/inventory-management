@@ -60,7 +60,7 @@ class ProductController extends Controller
             'image' => 'nullable|image|max:2048', // max 2MB
             'is_active' => 'sometimes|boolean',
             'store_source' => 'required|in:pusat,store',
-            'store_id' => 'nullable|required_if:store_source,store|exists:stores,id',
+            // Hilangkan validasi required_if untuk store_id
             'is_processed' => 'sometimes|boolean',
             'ingredients' => 'nullable|array',
             'ingredients.*.ingredient_id' => 'nullable|required_if:is_processed,1|exists:products,id',
@@ -105,6 +105,9 @@ class ProductController extends Controller
         $validated['is_active'] = isset($validated['is_active']) && $validated['is_active'] == 1;
         $validated['is_processed'] = isset($validated['is_processed']) && $validated['is_processed'] == 1;
 
+        // Set store_id = null untuk semua produk
+        $validated['store_id'] = null;
+
         // Create product
         $product = Product::create($validated);
 
@@ -116,13 +119,16 @@ class ProductController extends Controller
                 'quantity' => 0
             ]);
         } else {
-            // Create initial store stock for store products
-            StockStore::create([
-                'store_id' => $validated['store_id'],
-                'product_id' => $product->id,
-                'unit_id' => $product->base_unit_id,
-                'quantity' => 0
-            ]);
+            // Jika store, buat stok untuk semua store
+            $stores = Store::all();
+            foreach ($stores as $store) {
+                StockStore::create([
+                    'store_id' => $store->id,
+                    'product_id' => $product->id,
+                    'unit_id' => $product->base_unit_id,
+                    'quantity' => 0
+                ]);
+            }
         }
 
         // Process ingredients for processed products
@@ -212,9 +218,6 @@ class ProductController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    /**
- * Update the specified resource in storage.
- */
     public function update(Request $request, Product $product)
     {
         $validated = $request->validate([
@@ -228,7 +231,7 @@ class ProductController extends Controller
             'image' => 'nullable|image|max:2048', // max 2MB
             'is_active' => 'sometimes|boolean',
             'store_source' => 'required|in:pusat,store',
-            'store_id' => 'nullable|required_if:store_source,store|exists:stores,id',
+            // Hilangkan validasi required_if untuk store_id
             'is_processed' => 'sometimes|boolean',
             'ingredients' => 'nullable|array',
             'ingredients.*.ingredient_id' => 'nullable|required_if:is_processed,1|exists:products,id',
@@ -269,10 +272,8 @@ class ProductController extends Controller
         $validated['is_active'] = isset($validated['is_active']) && $validated['is_active'] == 1;
         $validated['is_processed'] = isset($validated['is_processed']) && $validated['is_processed'] == 1;
 
-        // Update store_id if store_source is changed
-        if ($validated['store_source'] === 'pusat') {
-            $validated['store_id'] = null;
-        }
+        // Set store_id = null untuk semua produk
+        $validated['store_id'] = null;
 
         // Begin transaction
         DB::beginTransaction();
@@ -282,21 +283,36 @@ class ProductController extends Controller
             $product->update($validated);
 
             // Update stocks based on store_source change
-            if ($product->store_source === 'pusat' && !$product->stockWarehouses()->exists()) {
-                // Create warehouse stock if product is moved from store to pusat
-                StockWarehouse::create([
-                    'product_id' => $product->id,
-                    'unit_id' => $product->base_unit_id,
-                    'quantity' => 0
-                ]);
-            } elseif ($product->store_source === 'store' && !$product->storeStocks()->where('store_id', $product->store_id)->exists()) {
-                // Create store stock if product is moved from pusat to store
-                StockStore::create([
-                    'store_id' => $product->store_id,
-                    'product_id' => $product->id,
-                    'unit_id' => $product->base_unit_id,
-                    'quantity' => 0
-                ]);
+            $oldStoreSource = $product->getOriginal('store_source');
+
+            if ($validated['store_source'] === 'pusat' && $oldStoreSource === 'store') {
+                // Produk diubah dari store ke pusat
+                // Hapus semua stok toko
+                $product->storeStocks()->delete();
+
+                // Buat stok gudang jika belum ada
+                if (!$product->stockWarehouses()->exists()) {
+                    StockWarehouse::create([
+                        'product_id' => $product->id,
+                        'unit_id' => $product->base_unit_id,
+                        'quantity' => 0
+                    ]);
+                }
+            }
+            else if ($validated['store_source'] === 'store' && $oldStoreSource === 'pusat') {
+                // Produk diubah dari pusat ke store
+                // Buat stok untuk semua toko jika belum ada
+                $stores = Store::all();
+                foreach ($stores as $store) {
+                    if (!$product->storeStocks()->where('store_id', $store->id)->exists()) {
+                        StockStore::create([
+                            'store_id' => $store->id,
+                            'product_id' => $product->id,
+                            'unit_id' => $product->base_unit_id,
+                            'quantity' => 0
+                        ]);
+                    }
+                }
             }
 
             // Process ingredients for processed products

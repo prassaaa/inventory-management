@@ -135,20 +135,8 @@
         <option value="pusat" {{ old('store_source', $product->store_source ?? 'pusat') == 'pusat' ? 'selected' : '' }}>Pusat</option>
         <option value="store" {{ old('store_source', $product->store_source ?? '') == 'store' ? 'selected' : '' }}>Store</option>
     </select>
+    <small class="form-text text-muted">Pilih 'Store' jika produk ini akan tersedia di semua store</small>
     @error('store_source')
-        <div class="invalid-feedback">{{ $message }}</div>
-    @enderror
-</div>
-
-<div class="form-group mb-3" id="store-selection" style="{{ old('store_source', $product->store_source ?? 'pusat') == 'store' ? '' : 'display: none;' }}">
-    <label for="store_id">Store</label>
-    <select class="form-select select2 @error('store_id') is-invalid @enderror" id="store_id" name="store_id">
-        <option value="">Pilih Store</option>
-        @foreach($stores as $store)
-            <option value="{{ $store->id }}" {{ old('store_id', $product->store_id ?? '') == $store->id ? 'selected' : '' }}>{{ $store->name }}</option>
-        @endforeach
-    </select>
-    @error('store_id')
         <div class="invalid-feedback">{{ $message }}</div>
     @enderror
 </div>
@@ -401,7 +389,7 @@
 
             if (targetName.includes('additional_units')) {
                 var realFieldName = targetName.replace('purchase_price', 'purchase_price_real')
-                                           .replace('selling_price', 'selling_price_real');
+                                            .replace('selling_price', 'selling_price_real');
                 $('input[name="' + realFieldName + '"]').val(numericValue || 0);
             } else {
                 var hiddenFieldId = $(this).attr('id') + '_real';
@@ -439,10 +427,8 @@
         // Toggle store selection
         $('#store_source').change(function() {
             if ($(this).val() === 'store') {
-                $('#store-selection').show();
                 $('#is-processed-group').show();
             } else {
-                $('#store-selection').hide();
                 $('#is-processed-group').hide();
                 $('#is_processed').prop('checked', false);
                 $('#ingredients-section').hide();
@@ -493,7 +479,7 @@
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Jumlah</label>
                         <input type="number" class="form-control ingredient-quantity" name="ingredients[${index}][quantity]"
-                               placeholder="Jumlah" step="0.01" min="0.01" ${$('#is_processed').is(':checked') ? 'required' : ''}>
+                                placeholder="Jumlah" step="0.01" min="0.01" ${$('#is_processed').is(':checked') ? 'required' : ''}>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Satuan</label>

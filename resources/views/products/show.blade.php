@@ -78,23 +78,14 @@
                                 <h6 class="fw-bold text-dark">Sumber Produk</h6>
                                 <p class="mb-0">
                                     <span class="badge bg-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}-light text-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}">
-                                        {{ $product->store_source == 'pusat' ? 'Pusat' : 'Store' }}
+                                        {{ $product->store_source == 'pusat' ? 'Pusat' : 'Semua Store' }}
                                     </span>
                                 </p>
                             </div>
                         </div>
-                        
-                        @if($product->store_source == 'store')
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <h6 class="fw-bold text-dark">Store</h6>
-                                <p class="mb-0">{{ $product->store->name ?? 'Tidak tersedia' }}</p>
-                            </div>
-                        </div>
-                        @endif
 
                         @if($product->store_source == 'store' && $product->is_processed)
-                        <div class="col-md-12">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <h6 class="fw-bold text-dark">Jenis Produk</h6>
                                 <p class="mb-0">
@@ -245,7 +236,7 @@
                                                     $stockQty = $wareStock ? floatval($wareStock->quantity) : 0;
                                                     $formattedStock = (floor($stockQty) == $stockQty) ? number_format($stockQty, 0, ',', '.') : number_format($stockQty, 2, ',', '.');
                                                 @endphp
-                                                {{ $formattedStock }} 
+                                                {{ $formattedStock }}
                                                 <small>{{ $product->baseUnit->name }}</small>
                                             </h4>
                                             @if($product->stockWarehouses->first() && $product->stockWarehouses->first()->quantity < $product->min_stock)
