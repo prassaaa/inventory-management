@@ -234,7 +234,7 @@ class SaleController extends Controller
     }
 
     /**
-     * Generate sale receipt in PDF
+     * Generate sale receipt and print directly
      */
     public function receipt(Sale $sale)
     {
@@ -243,8 +243,7 @@ class SaleController extends Controller
         // Create a safe filename by replacing slashes with underscores
         $safeFilename = str_replace(['/', '\\'], '_', $sale->invoice_number);
 
-        $pdf = PDF::loadView('sales.receipt', compact('sale'))->setPaper([0, 0, 226.77, 650], 'portrait');
-
-        return $pdf->stream('sale_' . $safeFilename . '.pdf');
+        // Render receipt view to HTML
+        return view('sales.receipt-print', compact('sale'));
     }
 }

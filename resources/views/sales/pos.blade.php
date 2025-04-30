@@ -19,6 +19,31 @@
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     }
 
+    /* Style untuk produk dengan stok habis */
+    .product-card.out-of-stock {
+        opacity: 0.7;
+        cursor: not-allowed;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .product-card.out-of-stock::before {
+        content: "STOK HABIS";
+        position: absolute;
+        width: 150%;
+        top: 45%;
+        left: -25%;
+        text-align: center;
+        background-color: rgba(220, 53, 69, 0.8);
+        color: white;
+        font-weight: bold;
+        padding: 5px 0;
+        transform: rotate(-35deg);
+        z-index: 10;
+        font-size: 12px;
+        letter-spacing: 1px;
+    }
+
     .product-image {
         height: 100px;
         object-fit: contain;
@@ -148,14 +173,19 @@
                     <div class="products-container">
                         <div class="row" id="products-grid">
                             @foreach($products as $product)
+                                @php
+                                    $productStock = $product->storeStock ? $product->storeStock->quantity : 0;
+                                    $outOfStock = $productStock <= 0;
+                                @endphp
                                 <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
-                                    <div class="card product-card"
+                                    <div class="card product-card {{ $outOfStock ? 'out-of-stock' : '' }}"
                                         data-id="{{ $product->id }}"
                                         data-code="{{ $product->code }}"
                                         data-name="{{ $product->name }}"
                                         data-price="{{ $product->selling_price }}"
                                         data-unit-id="{{ $product->base_unit_id }}"
                                         data-unit-name="{{ $product->baseUnit->name }}"
+                                        data-stock="{{ $productStock }}"
                                         data-is-processed="{{ $product->is_processed ? 'true' : 'false' }}">
                                         @if($product->is_processed)
                                             <span class="processed-badge">
@@ -174,7 +204,7 @@
                                         <div class="card-body p-2 text-center">
                                             <h6 class="card-title mb-1 text-truncate">{{ $product->name }}</h6>
                                             <p class="card-text text-primary fw-bold mb-0">Rp {{ number_format($product->selling_price, 0, ',', '.') }}</p>
-                                            <small class="text-muted">Stok: {{ $product->storeStock ? $product->storeStock->quantity : 0 }} {{ $product->baseUnit->name }}</small>
+                                            <small class="text-muted stock-info">Stok: {{ $productStock }} {{ $product->baseUnit->name }}</small>
                                         </div>
                                     </div>
                                 </div>
@@ -306,9 +336,9 @@
                 <p>Kembalian: <span id="success-change" class="fw-bold"></span></p>
             </div>
             <div class="modal-footer justify-content-center">
-                <a href="#" id="print-receipt" class="btn btn-outline-secondary" target="_blank">
+                <button type="button" class="btn btn-outline-secondary" id="print-receipt-btn">
                     <i class="fas fa-print me-1"></i> Cetak Struk
-                </a>
+                </button>
                 <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Transaksi Baru</button>
             </div>
         </div>
@@ -524,7 +554,18 @@
             const productPrice = parseFloat(product.data('price'));
             const unitId = product.data('unit-id');
             const unitName = product.data('unit-name');
-            const isProcessed = product.data('is-processed') === 'true' ? 1 : 0; // Use 1/0 instead of true/false
+            const isProcessed = product.data('is-processed') === 'true' ? 1 : 0;
+            const currentStock = parseFloat(product.data('stock'));
+
+            // Jika stok 0 atau kartu memiliki class out-of-stock, tampilkan pesan error dan hentikan proses
+            if (currentStock <= 0 || product.hasClass('out-of-stock')) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Stok Habis',
+                    text: `Produk "${productName}" tidak tersedia (stok: 0)`
+                });
+                return;
+            }
 
             // For processed products, show ingredients first if showIngredients is true
             if (isProcessed && showIngredients) {
@@ -555,9 +596,22 @@
             // Check if product already in cart
             const existingItemIndex = cartItems.findIndex(item => item.product_id === productId);
 
+            // Jika produk sudah ada di keranjang, cek apakah jumlah yang akan ditambahkan melebihi stok
             if (existingItemIndex > -1) {
+                const newQuantity = cartItems[existingItemIndex].quantity + 1;
+
+                // Jika jumlah baru melebihi stok, tampilkan pesan error
+                if (newQuantity > currentStock) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Stok Tidak Cukup',
+                        text: `Stok produk "${productName}" tidak mencukupi (tersedia: ${currentStock})`
+                    });
+                    return;
+                }
+
                 // Increment quantity
-                cartItems[existingItemIndex].quantity += 1;
+                cartItems[existingItemIndex].quantity = newQuantity;
             } else {
                 // Add new item
                 cartItems.push({
@@ -567,7 +621,8 @@
                     quantity: 1,
                     unit_id: unitId,
                     unit_name: unitName,
-                    is_processed: isProcessed
+                    is_processed: isProcessed,
+                    stock: currentStock // Simpan informasi stok untuk pengecekan selanjutnya
                 });
             }
 
@@ -576,7 +631,17 @@
 
         // Add product to cart when clicked
         $(document).on('click', '.product-card', function() {
-            addProductToCart($(this));
+            // Hanya proses jika produk bukan out-of-stock
+            if (!$(this).hasClass('out-of-stock')) {
+                addProductToCart($(this));
+            } else {
+                const productName = $(this).data('name');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Stok Habis',
+                    text: `Produk "${productName}" tidak tersedia (stok: 0)`
+                });
+            }
         });
 
         // Handle confirmation from ingredients modal
@@ -593,13 +658,25 @@
         // Update item quantity
         $(document).on('change', '.item-quantity', function() {
             const index = $(this).data('index');
-            const quantity = parseInt($(this).val()) || 1;
+            const newQuantity = parseInt($(this).val()) || 1;
+            const currentStock = cartItems[index].stock || 0;
 
-            if (quantity < 1) {
+            if (newQuantity < 1) {
                 $(this).val(1);
                 cartItems[index].quantity = 1;
+            } else if (newQuantity > currentStock) {
+                // Jika jumlah yang diinput melebihi stok, tampilkan pesan error
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Stok Tidak Cukup',
+                    text: `Stok produk "${cartItems[index].name}" tidak mencukupi (tersedia: ${currentStock})`
+                });
+
+                // Reset jumlah ke nilai maksimum yang diperbolehkan (stok yang tersedia)
+                $(this).val(currentStock);
+                cartItems[index].quantity = currentStock;
             } else {
-                cartItems[index].quantity = quantity;
+                cartItems[index].quantity = newQuantity;
             }
 
             updateCartTable();
@@ -717,7 +794,11 @@
                         $('#success-invoice').text(response.invoice_number);
                         $('#success-total').text("Rp " + formatNumber(total));
                         $('#success-change').text("Rp " + formatNumber(paidAmount - total > 0 ? paidAmount - total : 0));
-                        $('#print-receipt').attr('href', response.receipt_url);
+
+                        // Simpan receipt URL untuk digunakan nanti
+                        window.receiptUrl = response.receipt_url;
+
+                        // Tampilkan modal sukses
                         $('#payment-success-modal').modal('show');
 
                         // Clear cart for new sale
@@ -772,6 +853,26 @@
                     });
                 }
             });
+        });
+
+        // Handle print receipt button
+        $(document).on('click', '#print-receipt-btn', function() {
+            if (window.receiptUrl) {
+                // Buka jendela baru dengan URL receipt
+                const printWindow = window.open(window.receiptUrl, '_blank', 'width=800,height=600');
+
+                // Fokus ke jendela baru
+                if (printWindow) {
+                    printWindow.focus();
+                } else {
+                    // Jika popup diblokir, beri tahu pengguna
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Popup Diblokir',
+                        text: 'Mohon izinkan popup untuk mencetak struk.'
+                    });
+                }
+            }
         });
     });
 </script>
