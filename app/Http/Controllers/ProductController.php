@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Unit;
 use App\Models\ProductUnit;
 use App\Models\StockWarehouse;
+use App\Models\StockStore;
 use App\Models\PurchaseDetail;
 use App\Models\SaleDetail;
 use Illuminate\Http\Request;
