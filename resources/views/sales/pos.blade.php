@@ -858,19 +858,25 @@
         // Handle print receipt button
         $(document).on('click', '#print-receipt-btn', function() {
             if (window.receiptUrl) {
-                // Buka jendela baru dengan URL receipt
-                const printWindow = window.open(window.receiptUrl, '_blank', 'width=800,height=600');
+                // Deteksi apakah perangkat Android
+                var isAndroid = /Android/i.test(navigator.userAgent);
 
-                // Fokus ke jendela baru
-                if (printWindow) {
-                    printWindow.focus();
+                if (isAndroid) {
+                    // Untuk Android, gunakan rawbt-receipt
+                    let rawbtUrl = window.receiptUrl.replace('/receipt', '/rawbt-receipt');
+                    window.location.href = rawbtUrl;
                 } else {
-                    // Jika popup diblokir, beri tahu pengguna
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Popup Diblokir',
-                        text: 'Mohon izinkan popup untuk mencetak struk.'
-                    });
+                    // Untuk non-Android, gunakan cara normal
+                    const printWindow = window.open(window.receiptUrl, '_blank', 'width=800,height=600');
+                    if (printWindow) {
+                        printWindow.focus();
+                    } else {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Popup Diblokir',
+                            text: 'Mohon izinkan popup untuk mencetak struk.'
+                        });
+                    }
                 }
             }
         });

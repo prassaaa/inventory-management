@@ -65,21 +65,57 @@ class SaleController extends Controller
     public function pos()
     {
         $categories = \App\Models\Category::orderBy('name')->get();
+        $storeId = Auth::user()->store_id;
 
+        // Log untuk debugging
+        \Log::info('POS accessed by user', [
+            'user_id' => Auth::id(),
+            'store_id' => $storeId
+        ]);
+
+        // Ambil semua produk yang aktif dengan eager loading category dan baseUnit
         $products = Product::with(['category', 'baseUnit'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
-        // Add store stock for each product
-        foreach ($products as $product) {
-            $product->storeStock = StockStore::where('store_id', Auth::user()->store_id)
-                ->where('product_id', $product->id)
-                ->where('unit_id', $product->base_unit_id)
-                ->first();
+        // Ambil semua data stok untuk toko ini dalam satu query
+        $stocks = StockStore::where('store_id', $storeId)->get();
+
+        // Log jumlah stok yang ditemukan
+        \Log::info('Stock data loaded', [
+            'store_id' => $storeId,
+            'stock_count' => $stocks->count()
+        ]);
+
+        // Buat mapping product_id ke stok untuk lookup yang cepat
+        $stockMap = [];
+        foreach ($stocks as $stock) {
+            $key = $stock->product_id;
+            $stockMap[$key] = $stock;
         }
 
-        return view('sales.pos', compact('categories', 'products'));
+        // Hubungkan stok dengan produk
+        foreach ($products as $product) {
+            if (isset($stockMap[$product->id])) {
+                $product->storeStock = $stockMap[$product->id];
+
+                // Log untuk debugging produk dengan stok
+                if ($stockMap[$product->id]->quantity > 0) {
+                    \Log::info('Product with stock', [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'stock' => $stockMap[$product->id]->quantity
+                    ]);
+                }
+            } else {
+                // Jika tidak ada stok, buat objek kosong
+                $product->storeStock = null;
+            }
+        }
+
+        // Penyederhanaan cara mengakses stok dalam view
+        return view('sales.pos', compact('categories', 'products', 'stockMap'));
     }
 
     /**
@@ -245,5 +281,19 @@ class SaleController extends Controller
 
         // Render receipt view to HTML
         return view('sales.receipt-print', compact('sale'));
+    }
+
+    /**
+     * Generate sale receipt optimized for RAWBT Printer
+     *
+     * @param Sale $sale
+     * @return \Illuminate\Http\Response
+     */
+    public function rawbtReceipt(Sale $sale)
+    {
+        $sale->load(['store', 'creator', 'saleDetails.product', 'saleDetails.unit']);
+
+        // Render receipt view khusus untuk RAWBT printer
+        return view('sales.receipt-rawbt', compact('sale'));
     }
 }

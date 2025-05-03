@@ -131,6 +131,9 @@ Route::middleware(['auth'])->group(function () {
     Route::group(['middleware' => ['permission:view sales']], function () {
         Route::resource('sales', SaleController::class)->except(['edit', 'update', 'destroy']);
         Route::get('sales/{sale}/receipt', [SaleController::class, 'receipt'])->name('sales.receipt');
+        Route::get('sales/{sale}/rawbt-receipt', [SaleController::class, 'rawbtReceipt'])
+        ->name('sales.rawbt-receipt')
+        ->middleware('allow-rawbt');
     });
 
     Route::group(['middleware' => ['permission:create sales']], function () {

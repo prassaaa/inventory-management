@@ -350,56 +350,33 @@
         </div>
     </div>
 
-    <!-- Script untuk RAWBT Printer dan fallback ke print browser -->
+    <!-- Script khusus untuk RAWBT Printer pada Android -->
     <script>
         window.onload = function() {
-            // Delay sedikit untuk memastikan rendering selesai
+            // Tunggu sebentar untuk memastikan halaman dirender dengan baik
             setTimeout(function() {
-                // Deteksi apakah perangkat Android
-                var isAndroid = /Android/i.test(navigator.userAgent);
+                try {
+                    // Mendapatkan HTML struk
+                    var receiptHTML = document.querySelector('.receipt').innerHTML;
 
-                if (isAndroid) {
-                    try {
-                        // Mendapatkan HTML struk
-                        var receiptHTML = document.querySelector('.receipt').outerHTML;
+                    // Membuat ESC/POS commands untuk header dan font size
+                    var escposCommands = '\x1B@'; // Initialize printer
+                    escposCommands += '\x1B!\x00'; // Set font to normal
 
-                        // Membuat ESC/POS commands untuk header dan font size
-                        var escposCommands = '\x1B@'; // Initialize printer
-                        escposCommands += '\x1B!\x38'; // Set emphasized + double-height + double-width mode
+                    // Encode ke base64 untuk mencegah masalah karakter khusus
+                    var base64Data = btoa(unescape(encodeURIComponent(receiptHTML)));
 
-                        // Menggabungkan commands dengan HTML
-                        var printData = escposCommands + receiptHTML;
+                    // Buat URL dengan protocol rawbt
+                    var rawbtURL = 'rawbt:base64,' + base64Data;
 
-                        // Encode ke base64 untuk mencegah masalah karakter khusus
-                        var base64Data = btoa(unescape(encodeURIComponent(printData)));
-
-                        // Buat URL dengan protocol rawbt
-                        var rawbtURL = 'rawbt:base64,' + base64Data;
-
-                        // Panggil RAWBT Printer
-                        console.log("Sending to RAWBT Printer...");
-                        window.location.href = rawbtURL;
-                    } catch (e) {
-                        console.error("Error sending to RAWBT:", e);
-                        // Fallback ke cetak browser standar jika terjadi error
-                        window.print();
-                    }
-                } else {
-                    // Jika bukan Android, gunakan cetak browser standar
-                    window.print();
+                    // Panggil RAWBT Printer
+                    console.log("Sending to RAWBT Printer...");
+                    window.location.href = rawbtURL;
+                } catch (e) {
+                    console.error("Error sending to RAWBT:", e);
+                    alert("Terjadi kesalahan saat mencetak: " + e.message);
                 }
             }, 500);
-        }
-
-        // Lakukan tindakan setelah cetak selesai
-        window.onafterprint = function() {
-            // Delay untuk mencegah penutupan terlalu cepat
-            setTimeout(function() {
-                // Cek apakah jendela ini dibuka oleh jendela lain
-                if (window.opener) {
-                    window.close(); // Tutup jendela cetak
-                }
-            }, 100);
         }
     </script>
 </body>
