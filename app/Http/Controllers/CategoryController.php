@@ -33,12 +33,16 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:categories',
             'description' => 'nullable|string',
+            'show_in_pos' => 'boolean',
         ]);
+
+        // Jika checkbox tidak dicentang, nilai tidak masuk ke request
+        $validated['show_in_pos'] = $request->has('show_in_pos') ? true : false;
 
         Category::create($validated);
 
         return redirect()->route('categories.index')
-            ->with('success', 'Category created successfully.');
+            ->with('success', 'Kategori berhasil dibuat.');
     }
 
     /**
@@ -57,12 +61,16 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:categories,name,' . $category->id,
             'description' => 'nullable|string',
+            'show_in_pos' => 'boolean',
         ]);
+
+        // Jika checkbox tidak dicentang, nilai tidak masuk ke request
+        $validated['show_in_pos'] = $request->has('show_in_pos') ? true : false;
 
         $category->update($validated);
 
         return redirect()->route('categories.index')
-            ->with('success', 'Category updated successfully.');
+            ->with('success', 'Kategori berhasil diperbarui.');
     }
 
     /**
@@ -73,12 +81,12 @@ class CategoryController extends Controller
         // Check if category has products
         if ($category->products()->exists()) {
             return redirect()->route('categories.index')
-                ->with('error', 'Cannot delete category because it has associated products.');
+                ->with('error', 'Tidak dapat menghapus kategori karena masih memiliki produk terkait.');
         }
 
         $category->delete();
 
         return redirect()->route('categories.index')
-            ->with('success', 'Category deleted successfully.');
+            ->with('success', 'Kategori berhasil dihapus.');
     }
 }

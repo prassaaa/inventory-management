@@ -58,9 +58,9 @@
                                 </span>
                             </td>
                             <td>
-                                <span class="fw-medium">{{ $product->stock_quantity }}</span> {{ $product->baseUnit->name }}
+                                <span class="fw-medium">{{ intval($product->stock_quantity) }}</span> {{ $product->baseUnit->name }}
                             </td>
-                            <td>{{ $product->min_stock }} {{ $product->baseUnit->name }}</td>
+                            <td>{{ intval($product->min_stock) }} {{ $product->baseUnit->name }}</td>
                             <td>
                                 @if($product->stock_quantity <= 0)
                                     <span class="badge bg-danger-light text-danger rounded-pill px-2">Stok Habis</span>
@@ -145,7 +145,7 @@
                                 @php
                                 $lowStockProducts = $products->where('stock_quantity', '<', DB::raw('min_stock'))->take(5);
                                 @endphp
-                                
+
                                 @forelse($lowStockProducts as $product)
                                 <tr>
                                     <td>
@@ -188,7 +188,7 @@
             // Hancurkan tabel yang sudah ada sebelum menginisialisasi yang baru
             $('.datatable').DataTable().destroy();
         }
-        
+
         // Inisialisasi DataTable baru
         var table = $('.datatable').DataTable({
             language: {
@@ -200,7 +200,7 @@
             order: [[3, 'asc']],
             destroy: true // Pastikan opsi destroy diaktifkan
         });
-        
+
         // Custom search
         $('#customSearch').keyup(function() {
             table.search($(this).val()).draw();

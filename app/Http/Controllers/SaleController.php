@@ -7,6 +7,7 @@ use App\Models\SaleDetail;
 use App\Models\Store;
 use App\Models\Product;
 use App\Models\StockStore;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -64,7 +65,11 @@ class SaleController extends Controller
      */
     public function pos()
     {
-        $categories = \App\Models\Category::orderBy('name')->get();
+        // Ubah query untuk hanya menampilkan kategori yang diizinkan di POS
+        $categories = Category::where('show_in_pos', true)
+                            ->orderBy('name')
+                            ->get();
+
         $storeId = Auth::user()->store_id;
 
         // Log untuk debugging

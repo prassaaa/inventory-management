@@ -37,6 +37,14 @@
                 </div>
             @endif
 
+            @if(session('error'))
+                <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <div>{{ session('error') }}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+
             <div class="table-responsive">
                 <table class="table table-hover datatable" width="100%" cellspacing="0">
                     <thead class="table-light">
@@ -44,6 +52,7 @@
                             <th>ID</th>
                             <th>Nama</th>
                             <th>Deskripsi</th>
+                            <th>Tampil di POS</th>
                             <th>Dibuat</th>
                             <th>Aksi</th>
                         </tr>
@@ -54,6 +63,13 @@
                             <td><span class="fw-medium">{{ $category->id }}</span></td>
                             <td>{{ $category->name }}</td>
                             <td>{{ Str::limit($category->description, 50) ?: '-' }}</td>
+                            <td>
+                                @if($category->show_in_pos)
+                                    <span class="badge bg-success"><i class="fas fa-check"></i> Ya</span>
+                                @else
+                                    <span class="badge bg-secondary"><i class="fas fa-times"></i> Tidak</span>
+                                @endif
+                            </td>
                             <td>{{ $category->created_at->format('d/m/Y') }}</td>
                             <td>
                                 <div class="btn-group" role="group">

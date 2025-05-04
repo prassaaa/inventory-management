@@ -164,7 +164,7 @@
                 </div>
                 <div class="card-body">
                     <div class="category-pills mb-3">
-                        <div class="category-pill active" data-category="all">Semua Kategori</div>
+                        <!-- Menghilangkan "Semua Kategori" -->
                         @foreach($categories as $category)
                             <div class="category-pill" data-category="{{ $category->id }}">{{ $category->name }}</div>
                         @endforeach
@@ -204,7 +204,7 @@
                                         <div class="card-body p-2 text-center">
                                             <h6 class="card-title mb-1 text-truncate">{{ $product->name }}</h6>
                                             <p class="card-text text-primary fw-bold mb-0">Rp {{ number_format($product->selling_price, 0, ',', '.') }}</p>
-                                            <small class="text-muted stock-info">Stok: {{ $productStock }} {{ $product->baseUnit->name }}</small>
+                                            <small class="text-muted stock-info">Stok: {{ intval($productStock) }} {{ $product->baseUnit->name }}</small>
                                         </div>
                                     </div>
                                 </div>
@@ -473,23 +473,21 @@
             $('.category-pill').removeClass('active');
             $(this).addClass('active');
 
-            if (category === 'all') {
-                $('.product-item').show();
-            } else {
-                $('.product-item').hide();
-                $('.product-item[data-category="' + category + '"]').show();
-            }
+            // Menyembunyikan semua produk terlebih dahulu
+            $('.product-item').hide();
+            // Hanya menampilkan produk dengan kategori yang dipilih
+            $('.product-item[data-category="' + category + '"]').show();
         });
 
-        // Set "Menu Store" as default category - MODIFIED
-        // Find and click the Menu Store category pill
+        // Set kategori pertama sebagai default
         setTimeout(function() {
-            // Hapus class active dari semua pill kategori terlebih dahulu
-            $('.category-pill').removeClass('active');
-
-            // Cari category-pill kedua (Menu Store) dan klik secara otomatis
-            // Pastikan ini sesuai dengan urutan yang Anda inginkan
-            $('.category-pill:eq(1)').addClass('active').trigger('click');
+            // Jika ada kategori, pilih yang pertama
+            if ($('.category-pill').length > 0) {
+                $('.category-pill:eq(0)').addClass('active').trigger('click');
+            } else {
+                // Jika tidak ada kategori sama sekali, tampilkan semua produk
+                $('.product-item').show();
+            }
         }, 100);
 
         // Search products
@@ -509,12 +507,8 @@
             } else {
                 // If search is cleared, reapply category filter
                 const activeCategory = $('.category-pill.active').data('category');
-                if (activeCategory === 'all') {
-                    $('.product-item').show();
-                } else {
-                    $('.product-item').hide();
-                    $('.product-item[data-category="' + activeCategory + '"]').show();
-                }
+                $('.product-item').hide();
+                $('.product-item[data-category="' + activeCategory + '"]').show();
             }
         });
 
@@ -774,11 +768,6 @@
                 change: paidAmount - total > 0 ? paidAmount - total : 0,
                 items: itemsForSubmission
             };
-
-            // Log data sebelum kirim untuk debug
-            console.log("Processing payment with data:", data);
-            console.log("tax_enabled type:", typeof data.tax_enabled, "value:", data.tax_enabled);
-            console.log("First item is_processed:", typeof data.items[0].is_processed, "value:", data.items[0].is_processed);
 
             // Submit data to server
             $.ajax({
