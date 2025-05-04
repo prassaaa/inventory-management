@@ -87,14 +87,13 @@
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     @endcan
-                                    
+
                                     @can('delete suppliers')
-                                    <button type="button" class="btn btn-sm btn-outline-danger delete-btn" 
-                                            data-bs-toggle="tooltip" title="Hapus"
-                                            data-id="{{ $supplier->id }}"
-                                            data-name="{{ $supplier->name }}">
+                                    <a href="javascript:void(0)" class="btn btn-sm btn-outline-danger delete-btn"
+                                       data-bs-toggle="tooltip" title="Hapus"
+                                       onclick="showDeleteModal('{{ $supplier->id }}', '{{ $supplier->name }}')">
                                         <i class="fas fa-trash"></i>
-                                    </button>
+                                    </a>
                                     <form id="delete-form-{{ $supplier->id }}" action="{{ route('suppliers.destroy', $supplier) }}" method="POST" class="d-none">
                                         @csrf
                                         @method('DELETE')
@@ -129,7 +128,7 @@
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-danger" id="confirm-delete">
+                <button type="button" class="btn btn-danger" id="confirm-delete" onclick="confirmDelete()">
                     <i class="fas fa-trash me-1"></i> Hapus Pemasok
                 </button>
             </div>
@@ -140,13 +139,33 @@
 
 @section('scripts')
 <script>
+    // Variabel global untuk menyimpan ID pemasok yang akan dihapus
+    var supplierIdToDelete = null;
+
+    // Fungsi untuk menampilkan modal hapus
+    function showDeleteModal(id, name) {
+        supplierIdToDelete = id;
+        document.getElementById('supplier-name').textContent = name;
+        var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        deleteModal.show();
+    }
+
+    // Fungsi untuk mengonfirmasi penghapusan
+    function confirmDelete() {
+        if (supplierIdToDelete) {
+            if (confirm("Apakah Anda benar-benar yakin ingin menghapus pemasok ini?")) {
+                document.getElementById('delete-form-' + supplierIdToDelete).submit();
+            }
+        }
+    }
+
     $(document).ready(function() {
         // Cek jika tabel sudah diinisialisasi sebelumnya
         if ($.fn.dataTable.isDataTable('.datatable')) {
             // Hancurkan tabel yang sudah ada sebelum menginisialisasi yang baru
             $('.datatable').DataTable().destroy();
         }
-        
+
         // Inisialisasi DataTable baru
         var table = $('.datatable').DataTable({
             language: {
@@ -157,25 +176,10 @@
             pageLength: 10,
             destroy: true // Pastikan opsi destroy diaktifkan
         });
-        
+
         // Custom search
         $('#customSearch').keyup(function() {
             table.search($(this).val()).draw();
-        });
-        
-        // Delete confirmation
-        $('.delete-btn').click(function() {
-            var id = $(this).data('id');
-            var name = $(this).data('name');
-            
-            $('#supplier-name').text(name);
-            $('#confirm-delete').data('id', id);
-            $('#deleteModal').modal('show');
-        });
-        
-        $('#confirm-delete').click(function() {
-            var id = $(this).data('id');
-            $('#delete-form-' + id).submit();
         });
 
         // Initialize tooltips

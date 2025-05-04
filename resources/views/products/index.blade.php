@@ -132,11 +132,12 @@
                                     @endcan
 
                                     @can('delete products')
-                                    <button type="button" class="btn btn-sm btn-outline-danger"
-                                            onclick="if(confirm('Apakah Anda yakin ingin menghapus produk {{ $product->name }}?')) { document.getElementById('delete-form-{{ $product->id }}').submit(); }">
+                                    <a href="javascript:void(0)" class="btn btn-sm btn-outline-danger"
+                                       data-bs-toggle="tooltip" title="Hapus"
+                                       onclick="showDeleteModal('{{ $product->id }}', '{{ $product->name }}')">
                                         <i class="fas fa-trash"></i>
-                                    </button>
-                                    <form id="delete-form-{{ $product->id }}" action="{{ route('products.destroy', $product) }}" method="POST" style="display: none;">
+                                    </a>
+                                    <form id="delete-form-{{ $product->id }}" action="{{ route('products.destroy', $product) }}" method="POST" class="d-none">
                                         @csrf
                                         @method('DELETE')
                                     </form>
@@ -198,19 +199,14 @@
                     <i class="fas fa-exclamation-circle text-danger fa-5x mb-3"></i>
                     <h5>Apakah Anda yakin ingin menghapus produk ini?</h5>
                     <p class="text-muted">Produk: <span id="product-name" class="fw-bold"></span></p>
-                    <p class="small text-danger">Tindakan ini tidak dapat dibatalkan</p>
+                    <p class="small text-danger">Tindakan ini tidak dapat dibatalkan dan mungkin mempengaruhi data terkait seperti stok dan transaksi</p>
                 </div>
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-danger" id="confirm-delete">
+                <button type="button" class="btn btn-danger" id="confirm-delete" onclick="confirmDelete()">
                     <i class="fas fa-trash me-1"></i> Hapus Produk
                 </button>
-                <!-- Form yang akan di-submit oleh JavaScript -->
-                <form id="active-delete-form" method="POST" style="display: none;">
-                    @csrf
-                    @method('DELETE')
-                </form>
             </div>
         </div>
     </div>
@@ -219,6 +215,26 @@
 
 @section('scripts')
 <script>
+    // Variabel global untuk menyimpan ID produk yang akan dihapus
+    var productIdToDelete = null;
+
+    // Fungsi untuk menampilkan modal hapus
+    function showDeleteModal(id, name) {
+        productIdToDelete = id;
+        document.getElementById('product-name').textContent = name;
+        var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        deleteModal.show();
+    }
+
+    // Fungsi untuk mengonfirmasi penghapusan
+    function confirmDelete() {
+        if (productIdToDelete) {
+            if (confirm("Apakah Anda benar-benar yakin ingin menghapus produk ini?")) {
+                document.getElementById('delete-form-' + productIdToDelete).submit();
+            }
+        }
+    }
+
     $(document).ready(function() {
     var dataTable;
 
@@ -266,17 +282,6 @@
             dataTable.search($(this).val()).draw();
         } catch (error) {
             console.error("Error during search:", error);
-        }
-    });
-
-    // Delete confirmation
-    $('.delete-btn').click(function() {
-        var id = $(this).data('id');
-        var name = $(this).data('name');
-
-        // Konfirmasi langsung dengan browser
-        if (confirm('Apakah Anda yakin ingin menghapus produk "' + name + '"?')) {
-            document.getElementById('delete-form-' + id).submit();
         }
     });
 
