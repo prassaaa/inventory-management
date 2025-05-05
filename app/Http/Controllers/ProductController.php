@@ -390,30 +390,51 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
-        // Check if product has any transactions
-        if (PurchaseDetail::where('product_id', $product->id)->exists() ||
-            SaleDetail::where('product_id', $product->id)->exists()) {
+        try {
+            // Mulai transaksi database
+            DB::beginTransaction();
+            
+            // Check if product has any transactions
+            if (PurchaseDetail::where('product_id', $product->id)->exists() ||
+                SaleDetail::where('product_id', $product->id)->exists()) {
+                return redirect()->route('products.index')
+                    ->with('error', 'Cannot delete product because it has associated transactions.');
+            }
+
+            // Hapus terlebih dahulu data di stock_adjustment_details
+            DB::table('stock_adjustment_details')->where('product_id', $product->id)->delete();
+            
+            // Delete product image if exists
+            if ($product->image) {
+                Storage::disk('public')->delete($product->image);
+            }
+
+            // Delete product units
+            $product->productUnits()->delete();
+
+            // Delete product ingredients
+            DB::table('product_ingredients')->where('product_id', $product->id)->delete();
+
+            // Delete product stocks
+            $product->stockWarehouses()->delete();
+            $product->storeStocks()->delete();
+
+            // Delete product
+            $product->delete();
+            
+            // Commit transaksi jika semua operasi berhasil
+            DB::commit();
+
             return redirect()->route('products.index')
-                ->with('error', 'Cannot delete product because it has associated transactions.');
+                ->with('success', 'Product deleted successfully.');
+                
+        } catch (\Exception $e) {
+            // Rollback transaksi jika terjadi error
+            DB::rollBack();
+            
+            return redirect()->route('products.index')
+                ->with('error', 'Error deleting product: ' . $e->getMessage());
         }
-
-        // Delete product image if exists
-        if ($product->image) {
-            Storage::disk('public')->delete($product->image);
-        }
-
-        // Delete product units
-        $product->productUnits()->delete();
-
-        // Delete product stocks
-        $product->stockWarehouses()->delete();
-        $product->storeStocks()->delete();
-
-        // Delete product
-        $product->delete();
-
-        return redirect()->route('products.index')
-            ->with('success', 'Product deleted successfully.');
     }
 
     /**

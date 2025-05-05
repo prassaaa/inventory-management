@@ -153,9 +153,7 @@
     // Fungsi untuk mengonfirmasi penghapusan
     function confirmDelete() {
         if (supplierIdToDelete) {
-            if (confirm("Apakah Anda benar-benar yakin ingin menghapus pemasok ini?")) {
                 document.getElementById('delete-form-' + supplierIdToDelete).submit();
-            }
         }
     }
 

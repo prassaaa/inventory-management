@@ -229,9 +229,7 @@
     // Fungsi untuk mengonfirmasi penghapusan
     function confirmDelete() {
         if (productIdToDelete) {
-            if (confirm("Apakah Anda benar-benar yakin ingin menghapus produk ini?")) {
                 document.getElementById('delete-form-' + productIdToDelete).submit();
-            }
         }
     }
 

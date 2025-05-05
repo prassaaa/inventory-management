@@ -144,9 +144,7 @@
     // Fungsi untuk mengonfirmasi penghapusan
     function confirmDelete() {
         if (categoryIdToDelete) {
-            if (confirm("Apakah Anda benar-benar yakin ingin menghapus kategori ini?")) {
                 document.getElementById('delete-form-' + categoryIdToDelete).submit();
-            }
         }
     }
 

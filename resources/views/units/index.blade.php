@@ -144,9 +144,7 @@
     // Fungsi untuk mengonfirmasi penghapusan
     function confirmDelete() {
         if (unitIdToDelete) {
-            if (confirm("Apakah Anda benar-benar yakin ingin menghapus satuan ini?")) {
                 document.getElementById('delete-form-' + unitIdToDelete).submit();
-            }
         }
     }
 
