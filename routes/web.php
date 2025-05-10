@@ -25,7 +25,7 @@ use App\Http\Controllers\Admin\BackOfficeStoreOrderController;
 use App\Http\Controllers\Store\StoreClientOrderController;
 use App\Http\Controllers\Warehouse\WarehouseOrderController;
 use App\Http\Controllers\Warehouse\WarehousePurchaseController;
-use App\Http\Controllers\FinanceController; // Menambahkan import untuk FinanceController
+use App\Http\Controllers\FinanceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -51,11 +51,19 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::group(['middleware' => ['permission:view products']], function () {
+        // 1. Definisikan route khusus trashed sebelum resource route
+        Route::get('products/trashed', [ProductController::class, 'trashed'])->name('products.trashed');
+        Route::patch('products/restore/{id}', [ProductController::class, 'restore'])->name('products.restore');
+        Route::delete('products/force-delete/{id}', [ProductController::class, 'forceDelete'])->name('products.force-delete');
+
+        // 2. Kemudian definisikan resource route
         Route::resource('products', ProductController::class);
+
+        // 3. Route lainnya
         Route::get('products/import/template', [ProductController::class, 'importTemplate'])->name('products.import.template');
         Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
         Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
-        Route::get('/products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
+        Route::get('products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
     });
 
     Route::group(['middleware' => ['permission:view suppliers']], function () {

@@ -391,49 +391,14 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         try {
-            // Mulai transaksi database
-            DB::beginTransaction();
-            
-            // Check if product has any transactions
-            if (PurchaseDetail::where('product_id', $product->id)->exists() ||
-                SaleDetail::where('product_id', $product->id)->exists()) {
-                return redirect()->route('products.index')
-                    ->with('error', 'Cannot delete product because it has associated transactions.');
-            }
-
-            // Hapus terlebih dahulu data di stock_adjustment_details
-            DB::table('stock_adjustment_details')->where('product_id', $product->id)->delete();
-            
-            // Delete product image if exists
-            if ($product->image) {
-                Storage::disk('public')->delete($product->image);
-            }
-
-            // Delete product units
-            $product->productUnits()->delete();
-
-            // Delete product ingredients
-            DB::table('product_ingredients')->where('product_id', $product->id)->delete();
-
-            // Delete product stocks
-            $product->stockWarehouses()->delete();
-            $product->storeStocks()->delete();
-
-            // Delete product
+            // Dengan soft delete, kita cukup memanggil delete() dan Laravel akan mengatur kolom deleted_at
             $product->delete();
             
-            // Commit transaksi jika semua operasi berhasil
-            DB::commit();
-
             return redirect()->route('products.index')
-                ->with('success', 'Product deleted successfully.');
-                
+                ->with('success', 'Produk berhasil dihapus.');
         } catch (\Exception $e) {
-            // Rollback transaksi jika terjadi error
-            DB::rollBack();
-            
             return redirect()->route('products.index')
-                ->with('error', 'Error deleting product: ' . $e->getMessage());
+                ->with('error', 'Error menghapus produk: ' . $e->getMessage());
         }
     }
 
@@ -473,7 +438,7 @@ class ProductController extends Controller
         return Excel::download(new ProductsExport, 'products_' . date('Y-m-d') . '.xlsx');
     }
 
-     /**
+    /**
      * Get ingredients for processed product
      */
     public function getIngredients(Request $request)
@@ -514,5 +479,90 @@ class ProductController extends Controller
             'success' => true,
             'ingredients' => $ingredients
         ]);
+    }
+
+    /**
+     * Display a listing of trashed products.
+     */
+    public function trashed()
+    {
+        $trashedProducts = Product::onlyTrashed()
+            ->with(['category', 'baseUnit'])
+            ->orderBy('name')
+            ->get();
+            
+        return view('products.trashed', compact('trashedProducts'));
+    }
+
+    /**
+     * Restore a trashed product.
+     */
+    public function restore($id)
+    {
+        try {
+            $product = Product::onlyTrashed()->findOrFail($id);
+            $product->restore();
+            
+            return redirect()->route('products.trashed')
+                ->with('success', 'Produk berhasil dikembalikan.');
+        } catch (\Exception $e) {
+            return redirect()->route('products.trashed')
+                ->with('error', 'Error mengembalikan produk: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Permanently delete a product.
+     */
+    public function forceDelete($id)
+    {
+        try {
+            $product = Product::onlyTrashed()->findOrFail($id);
+            
+            // Check for product references in shipment_details or other tables
+            if (DB::table('shipment_details')->where('product_id', $id)->exists() ||
+                PurchaseDetail::where('product_id', $id)->exists() ||
+                SaleDetail::where('product_id', $id)->exists()) {
+                return redirect()->route('products.trashed')
+                    ->with('error', 'Tidak dapat menghapus produk secara permanen karena masih terkait dengan transaksi atau pengiriman.');
+            }
+            
+            // Begin transaction
+            DB::beginTransaction();
+            
+            // Hapus terlebih dahulu data di stock_adjustment_details
+            DB::table('stock_adjustment_details')->where('product_id', $id)->delete();
+            
+            // Delete product image if exists
+            if ($product->image) {
+                Storage::disk('public')->delete($product->image);
+            }
+
+            // Delete product units
+            $product->productUnits()->delete();
+
+            // Delete product ingredients
+            DB::table('product_ingredients')->where('product_id', $id)->delete();
+            
+            // Delete product from ingredients
+            DB::table('product_ingredients')->where('ingredient_id', $id)->delete();
+
+            // Delete product stocks
+            $product->stockWarehouses()->delete();
+            $product->storeStocks()->delete();
+
+            // Permanently delete the product
+            $product->forceDelete();
+            
+            // Commit changes
+            DB::commit();
+            
+            return redirect()->route('products.trashed')
+                ->with('success', 'Produk berhasil dihapus permanen.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('products.trashed')
+                ->with('error', 'Error menghapus permanen produk: ' . $e->getMessage());
+        }
     }
 }

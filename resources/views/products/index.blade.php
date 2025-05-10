@@ -17,6 +17,11 @@
                 <i class="fas fa-plus me-1"></i> Tambah Produk
             </a>
             @endcan
+            @can('delete products')
+            <a href="{{ route('products.trashed') }}" class="btn btn-warning">
+                <i class="fas fa-trash-restore me-1"></i> Lihat Produk Terhapus
+            </a>
+            @endcan
             <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
                 <i class="fas fa-file-import me-1"></i> Import
             </button>
