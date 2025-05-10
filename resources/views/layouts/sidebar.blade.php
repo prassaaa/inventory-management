@@ -304,11 +304,6 @@
                 </a>
                 @endcan
 
-                @can('backup database')
-                <a href="{{ route('backups.index') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('backups.*') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-database me-2 text-primary small"></i> Database
-                </a>
-                @endcan
             </div>
         </div>
         @endcanany

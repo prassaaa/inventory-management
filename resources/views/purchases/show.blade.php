@@ -159,7 +159,7 @@
                         </div>
                     @else
                         <div class="text-center py-4">
-                            <img src="{{ asset('img/no-data.svg') }}" alt="No Data" style="height: 120px;" class="mb-3">
+                            <i class="fas fa-shopping-basket fa-4x text-muted mb-3"></i>
                             <p class="text-muted">Belum ada retur pembelian untuk transaksi ini.</p>
                         </div>
                     @endif
@@ -238,7 +238,7 @@
                                     <strong>{{ $detail->product->code }}</strong> - {{ $detail->product->name }}
                                 </a>
                             </td>
-                            <td>{{ $detail->quantity }}</td>
+                            <td>{{ intval($detail->quantity) }}</td>
                             <td>{{ $detail->unit->name }}</td>
                             <td>Rp {{ number_format($detail->price, 0, ',', '.') }}</td>
                             <td>Rp {{ number_format($detail->subtotal, 0, ',', '.') }}</td>

@@ -63,7 +63,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('products/import/template', [ProductController::class, 'importTemplate'])->name('products.import.template');
         Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
         Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
-        Route::get('products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
+        Route::get('/products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
     });
 
     Route::group(['middleware' => ['permission:view suppliers']], function () {
@@ -125,9 +125,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('shipments/{shipment}/document', [ShipmentController::class, 'document'])->name('shipments.document');
     });
 
-    Route::group(['middleware' => ['permission:view store returns']], function () {
-        Route::resource('store-returns', StoreReturnController::class);
-    });
 
     // Finance Management - BAGIAN BARU
     Route::group(['middleware' => ['permission:view financial reports']], function () {
@@ -147,10 +144,6 @@ Route::middleware(['auth'])->group(function () {
     Route::group(['middleware' => ['permission:create sales']], function () {
         Route::get('pos', [SaleController::class, 'pos'])->name('pos');
         Route::post('pos/process', [SaleController::class, 'processPos'])->name('pos.process');
-    });
-
-    Route::group(['middleware' => ['permission:view expenses']], function () {
-        Route::resource('expenses', ExpenseController::class);
     });
 
     // Stock Management Routes
@@ -215,21 +208,6 @@ Route::middleware(['auth'])->group(function () {
     Route::group(['middleware' => ['permission:manage roles']], function () {
         Route::resource('roles', RoleController::class);
         Route::resource('permissions', PermissionController::class);
-    });
-
-    Route::group(['middleware' => ['permission:backup database|restore database']], function () {
-        Route::get('/backups', [BackupController::class, 'index'])->name('backups.index');
-
-        Route::group(['middleware' => ['permission:backup database']], function () {
-            Route::post('/backups', [BackupController::class, 'create'])->name('backups.create');
-            Route::delete('/backups/{filename}', [BackupController::class, 'destroy'])->name('backups.destroy');
-        });
-
-        Route::get('/backups/{filename}', [BackupController::class, 'download'])->name('backups.download');
-
-        Route::group(['middleware' => ['permission:restore database']], function () {
-            Route::post('/backups/{filename}/restore', [BackupController::class, 'restore'])->name('backups.restore');
-        });
     });
 
     // User Profile (available for all authenticated users)

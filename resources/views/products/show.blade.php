@@ -199,7 +199,7 @@
                                             {{ $ingredient->name }}
                                         </a>
                                     </td>
-                                    <td>{{ $ingredient->pivot->quantity }}</td>
+                                    <td>{{ intval($ingredient->pivot->quantity) }}</td>
                                     <td>
                                         @php
                                             $unitName = App\Models\Unit::find($ingredient->pivot->unit_id)->name ?? '';
@@ -356,7 +356,7 @@
                                                     </a>
                                                 </td>
                                                 <td>{{ $purchase->purchase->supplier->name }}</td>
-                                                <td>{{ $purchase->quantity }} {{ $purchase->unit->name }}</td>
+                                                <td>{{ intval($purchase->quantity) }} {{ $purchase->unit->name }}</td>
                                                 <td>Rp {{ number_format($purchase->price, 0, ',', '.') }}</td>
                                             </tr>
                                             @endforeach
@@ -393,7 +393,7 @@
                                                     </a>
                                                 </td>
                                                 <td>{{ $sale->sale->store->name }}</td>
-                                                <td>{{ $sale->quantity }} {{ $sale->unit->name }}</td>
+                                                <td>{{ intval($sale->quantity) }} {{ $sale->unit->name }}</td>
                                                 <td>Rp {{ number_format($sale->price, 0, ',', '.') }}</td>
                                             </tr>
                                             @endforeach

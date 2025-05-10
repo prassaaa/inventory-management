@@ -393,7 +393,7 @@ class ProductController extends Controller
         try {
             // Dengan soft delete, kita cukup memanggil delete() dan Laravel akan mengatur kolom deleted_at
             $product->delete();
-            
+
             return redirect()->route('products.index')
                 ->with('success', 'Produk berhasil dihapus.');
         } catch (\Exception $e) {
@@ -445,40 +445,98 @@ class ProductController extends Controller
     {
         $productId = $request->input('product_id');
 
+        \Log::info('Request untuk mendapatkan bahan produk', [
+            'product_id' => $productId
+        ]);
+
         if (!$productId) {
+            \Log::warning('ID produk tidak valid untuk request bahan');
             return response()->json([
                 'success' => false,
                 'message' => 'ID produk tidak valid'
             ]);
         }
 
-        $product = Product::with(['ingredients'])->find($productId);
+        // Gunakan find() untuk mengambil data produk secara langsung
+        $product = Product::find($productId);
 
-        if (!$product || !$product->is_processed) {
+        if (!$product) {
+            \Log::warning('Produk tidak ditemukan', [
+                'product_id' => $productId
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Produk tidak ditemukan atau bukan produk olahan'
+                'message' => 'Produk tidak ditemukan'
             ]);
         }
 
-        $ingredients = [];
-
-        foreach ($product->ingredients as $ingredient) {
-            $unitName = Unit::find($ingredient->pivot->unit_id)->name ?? '';
-
-            $ingredients[] = [
-                'id' => $ingredient->id,
-                'name' => $ingredient->name,
-                'quantity' => $ingredient->pivot->quantity,
-                'unit_id' => $ingredient->pivot->unit_id,
-                'unit_name' => $unitName
-            ];
+        if (!$product->is_processed) {
+            \Log::warning('Produk bukan produk olahan', [
+                'product_id' => $productId,
+                'product_name' => $product->name
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Produk ini bukan produk olahan'
+            ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'ingredients' => $ingredients
-        ]);
+        try {
+            // Ambil bahan-bahan secara manual dengan query langsung
+            $ingredientsQuery = DB::table('product_ingredients')
+                ->where('product_id', $productId)
+                ->get();
+
+            \Log::info('Bahan-bahan produk diambil', [
+                'product_id' => $productId,
+                'ingredients_count' => $ingredientsQuery->count()
+            ]);
+
+            $ingredients = [];
+
+            foreach ($ingredientsQuery as $ingredientData) {
+                // Ambil data produk bahan dan satuan
+                $ingredient = Product::find($ingredientData->ingredient_id);
+                $unit = Unit::find($ingredientData->unit_id);
+
+                if (!$ingredient || !$unit) {
+                    \Log::warning('Data bahan atau satuan tidak ditemukan', [
+                        'ingredient_id' => $ingredientData->ingredient_id,
+                        'unit_id' => $ingredientData->unit_id
+                    ]);
+                    continue;
+                }
+
+                $ingredients[] = [
+                    'id' => $ingredient->id,
+                    'name' => $ingredient->name,
+                    'quantity' => $ingredientData->quantity,
+                    'unit_id' => $ingredientData->unit_id,
+                    'unit_name' => $unit->name
+                ];
+            }
+
+            \Log::info('Mengembalikan data bahan', [
+                'product_id' => $productId,
+                'ingredients_count' => count($ingredients)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'ingredients' => $ingredients
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error saat mengambil bahan produk', [
+                'product_id' => $productId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data bahan: ' . $e->getMessage()
+            ]);
+        }
     }
 
     /**
@@ -490,7 +548,7 @@ class ProductController extends Controller
             ->with(['category', 'baseUnit'])
             ->orderBy('name')
             ->get();
-            
+
         return view('products.trashed', compact('trashedProducts'));
     }
 
@@ -502,7 +560,7 @@ class ProductController extends Controller
         try {
             $product = Product::onlyTrashed()->findOrFail($id);
             $product->restore();
-            
+
             return redirect()->route('products.trashed')
                 ->with('success', 'Produk berhasil dikembalikan.');
         } catch (\Exception $e) {
@@ -518,7 +576,7 @@ class ProductController extends Controller
     {
         try {
             $product = Product::onlyTrashed()->findOrFail($id);
-            
+
             // Check for product references in shipment_details or other tables
             if (DB::table('shipment_details')->where('product_id', $id)->exists() ||
                 PurchaseDetail::where('product_id', $id)->exists() ||
@@ -526,13 +584,13 @@ class ProductController extends Controller
                 return redirect()->route('products.trashed')
                     ->with('error', 'Tidak dapat menghapus produk secara permanen karena masih terkait dengan transaksi atau pengiriman.');
             }
-            
+
             // Begin transaction
             DB::beginTransaction();
-            
+
             // Hapus terlebih dahulu data di stock_adjustment_details
             DB::table('stock_adjustment_details')->where('product_id', $id)->delete();
-            
+
             // Delete product image if exists
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
@@ -543,7 +601,7 @@ class ProductController extends Controller
 
             // Delete product ingredients
             DB::table('product_ingredients')->where('product_id', $id)->delete();
-            
+
             // Delete product from ingredients
             DB::table('product_ingredients')->where('ingredient_id', $id)->delete();
 
@@ -553,10 +611,10 @@ class ProductController extends Controller
 
             // Permanently delete the product
             $product->forceDelete();
-            
+
             // Commit changes
             DB::commit();
-            
+
             return redirect()->route('products.trashed')
                 ->with('success', 'Produk berhasil dihapus permanen.');
         } catch (\Exception $e) {

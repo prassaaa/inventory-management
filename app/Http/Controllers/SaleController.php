@@ -8,9 +8,12 @@ use App\Models\Store;
 use App\Models\Product;
 use App\Models\StockStore;
 use App\Models\Category;
+use App\Models\Unit;
+use App\Helpers\UnitConverter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use PDF;
 
 class SaleController extends Controller
@@ -73,7 +76,7 @@ class SaleController extends Controller
         $storeId = Auth::user()->store_id;
 
         // Log untuk debugging
-        \Log::info('POS accessed by user', [
+        Log::info('POS accessed by user', [
             'user_id' => Auth::id(),
             'store_id' => $storeId
         ]);
@@ -88,7 +91,7 @@ class SaleController extends Controller
         $stocks = StockStore::where('store_id', $storeId)->get();
 
         // Log jumlah stok yang ditemukan
-        \Log::info('Stock data loaded', [
+        Log::info('Stock data loaded', [
             'store_id' => $storeId,
             'stock_count' => $stocks->count()
         ]);
@@ -107,7 +110,7 @@ class SaleController extends Controller
 
                 // Log untuk debugging produk dengan stok
                 if ($stockMap[$product->id]->quantity > 0) {
-                    \Log::info('Product with stock', [
+                    Log::info('Product with stock', [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
                         'stock' => $stockMap[$product->id]->quantity
@@ -124,7 +127,7 @@ class SaleController extends Controller
     }
 
     /**
-     * Process POS sale.
+     * Process POS sale dengan konversi satuan yang ditingkatkan.
      */
     public function processPos(Request $request)
     {
@@ -133,7 +136,7 @@ class SaleController extends Controller
             'sale.payment_type' => 'required|in:tunai,non_tunai',
             'sale.customer_name' => 'nullable|string|max:255',
             'sale.discount' => 'required|numeric|min:0',
-            'sale.tax_enabled' => 'required|boolean', // Changed from nullable to required
+            'sale.tax_enabled' => 'required|boolean',
             'sale.tax' => 'required|numeric|min:0',
             'sale.total_amount' => 'required|numeric|min:0',
             'sale.total_payment' => 'required|numeric|min:0',
@@ -153,6 +156,13 @@ class SaleController extends Controller
         try {
             DB::beginTransaction();
 
+            // Log awal proses penjualan
+            Log::info('Mulai proses penjualan', [
+                'store_id' => $saleData['store_id'],
+                'jumlah_item' => count($saleData['items']),
+                'total_amount' => $saleData['total_amount']
+            ]);
+
             // Generate invoice number
             $lastSale = Sale::where('store_id', $saleData['store_id'])
                 ->latest()
@@ -171,16 +181,45 @@ class SaleController extends Controller
                 'payment_type' => $saleData['payment_type'],
                 'discount' => $saleData['discount'],
                 'tax' => $saleData['tax'],
-                'tax_enabled' => $saleData['tax_enabled'], // Added this field
+                'tax_enabled' => $saleData['tax_enabled'],
                 'total_payment' => $saleData['total_payment'],
                 'change' => $saleData['change'],
                 'status' => 'paid',
                 'created_by' => Auth::id(),
             ]);
 
+            // Log pembuatan data penjualan
+            Log::info('Data penjualan dibuat', [
+                'sale_id' => $sale->id,
+                'invoice' => $sale->invoice_number,
+                'total' => $sale->total_amount
+            ]);
+
             // Create sale details and update stock
-            foreach ($saleData['items'] as $item) {
-                SaleDetail::create([
+            foreach ($saleData['items'] as $index => $item) {
+                // Normalisasi nilai is_processed
+                $isProcessed = false;
+                if (isset($item['is_processed'])) {
+                    if (is_bool($item['is_processed'])) {
+                        $isProcessed = $item['is_processed'];
+                    } elseif (is_string($item['is_processed'])) {
+                        $isProcessed = in_array(strtolower($item['is_processed']), ['true', '1', 'yes', 'on']);
+                    } elseif (is_numeric($item['is_processed'])) {
+                        $isProcessed = (int)$item['is_processed'] === 1;
+                    }
+                }
+
+                // Log informasi item yang diproses
+                Log::info('Memproses item penjualan', [
+                    'index' => $index,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_id' => $item['unit_id'],
+                    'is_processed' => $isProcessed
+                ]);
+
+                // Buat detail penjualan
+                $saleDetail = SaleDetail::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
                     'unit_id' => $item['unit_id'],
@@ -190,56 +229,213 @@ class SaleController extends Controller
                     'subtotal' => $item['subtotal'],
                 ]);
 
+                Log::info('Detail penjualan dibuat', [
+                    'sale_detail_id' => $saleDetail->id
+                ]);
+
                 // Get product
                 $product = Product::find($item['product_id']);
 
+                if (!$product) {
+                    throw new \Exception("Produk dengan ID {$item['product_id']} tidak ditemukan.");
+                }
+
+                Log::info('Info produk', [
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'base_unit_id' => $product->base_unit_id,
+                    'db_is_processed' => $product->is_processed
+                ]);
+
+                // Gunakan nilai is_processed dari database (bukan dari request) jika produk benar-benar olahan
+                $useProcessed = $product->is_processed;
+
+                Log::info('Keputusan penggunaan is_processed', [
+                    'from_request' => $isProcessed,
+                    'from_database' => $product->is_processed,
+                    'final_decision' => $useProcessed
+                ]);
+
                 // Check if product is processed
-                if (isset($item['is_processed']) && $item['is_processed']) {
+                if ($useProcessed) {
+                    Log::info('Memproses produk olahan', [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name
+                    ]);
+
                     // For processed products, reduce stock of ingredients
-                    $ingredients = $product->ingredients()->with('baseUnit')->get();
+                    try {
+                        // Ambil bahan-bahan secara manual dengan query langsung
+                        $ingredientsQuery = DB::table('product_ingredients')
+                            ->where('product_id', $product->id)
+                            ->get();
 
-                    foreach ($ingredients as $ingredient) {
-                        // Calculate quantity needed for this ingredient
-                        $ingredientQuantity = $ingredient->pivot->quantity * $item['quantity'];
+                        Log::info('Jumlah bahan yang perlu diproses', [
+                            'product_id' => $product->id,
+                            'ingredients_count' => $ingredientsQuery->count()
+                        ]);
 
-                        // Find store stock for this ingredient
-                        $ingredientStockStore = StockStore::firstOrCreate(
-                            [
+                        foreach ($ingredientsQuery as $ingredientData) {
+                            // Ambil data produk bahan dan satuan
+                            $ingredient = Product::find($ingredientData->ingredient_id);
+
+                            if (!$ingredient) {
+                                Log::warning('Bahan tidak ditemukan', [
+                                    'ingredient_id' => $ingredientData->ingredient_id
+                                ]);
+                                continue;
+                            }
+
+                            // Jumlah bahan yang dibutuhkan, sesuai satuan di resep
+                            $ingredientQuantity = $ingredientData->quantity * $item['quantity'];
+
+                            Log::info('Memproses bahan', [
+                                'ingredient_id' => $ingredient->id,
+                                'ingredient_name' => $ingredient->name,
+                                'quantity_needed' => $ingredientQuantity,
+                                'unit_id' => $ingredientData->unit_id
+                            ]);
+
+                            // Find store stock for this ingredient
+                            $ingredientStockStore = StockStore::where([
                                 'store_id' => $saleData['store_id'],
-                                'product_id' => $ingredient->id,
-                                'unit_id' => $ingredient->pivot->unit_id
-                            ],
-                            ['quantity' => 0]
-                        );
+                                'product_id' => $ingredient->id
+                            ])->first();
 
-                        // Check if enough stock
-                        if ($ingredientStockStore->quantity < $ingredientQuantity) {
-                            throw new \Exception("Stok bahan {$ingredient->name} tidak mencukupi untuk produk {$product->name}.");
+                            // Jika tidak ditemukan stok, buat baru
+                            if (!$ingredientStockStore) {
+                                Log::info('Stok bahan tidak ditemukan, membuat stok baru', [
+                                    'ingredient_id' => $ingredient->id,
+                                    'ingredient_name' => $ingredient->name
+                                ]);
+
+                                $ingredientStockStore = StockStore::create([
+                                    'store_id' => $saleData['store_id'],
+                                    'product_id' => $ingredient->id,
+                                    'unit_id' => $ingredient->base_unit_id,
+                                    'quantity' => 0
+                                ]);
+                            }
+
+                            // Konversi jumlah bahan jika satuan berbeda
+                            $quantityToReduce = $ingredientQuantity;
+
+                            if ($ingredientData->unit_id !== $ingredientStockStore->unit_id) {
+                                Log::info('Satuan resep dan stok berbeda, perlu konversi', [
+                                    'ingredient_name' => $ingredient->name,
+                                    'recipe_unit_id' => $ingredientData->unit_id,
+                                    'stock_unit_id' => $ingredientStockStore->unit_id
+                                ]);
+
+                                // Gunakan helper konversi
+                                $convertedQuantity = UnitConverter::convert(
+                                    $ingredientQuantity,
+                                    $ingredientData->unit_id,
+                                    $ingredientStockStore->unit_id
+                                );
+
+                                if ($convertedQuantity === null) {
+                                    Log::error('Konversi satuan gagal', [
+                                        'ingredient_name' => $ingredient->name,
+                                        'from_unit_id' => $ingredientData->unit_id,
+                                        'to_unit_id' => $ingredientStockStore->unit_id
+                                    ]);
+
+                                    throw new \Exception("Tidak dapat mengkonversi satuan untuk bahan {$ingredient->name}");
+                                }
+
+                                $quantityToReduce = $convertedQuantity;
+
+                                Log::info('Konversi satuan berhasil', [
+                                    'ingredient_name' => $ingredient->name,
+                                    'original_quantity' => $ingredientQuantity,
+                                    'converted_quantity' => $quantityToReduce,
+                                    'from_unit' => $ingredientData->unit_id,
+                                    'to_unit' => $ingredientStockStore->unit_id
+                                ]);
+                            }
+
+                            // Cek stok
+                            if ($ingredientStockStore->quantity < $quantityToReduce) {
+                                Log::warning('Stok bahan tidak cukup', [
+                                    'ingredient_id' => $ingredient->id,
+                                    'ingredient_name' => $ingredient->name,
+                                    'available' => $ingredientStockStore->quantity,
+                                    'needed' => $quantityToReduce
+                                ]);
+
+                                throw new \Exception("Stok bahan {$ingredient->name} tidak mencukupi untuk produk {$product->name}.");
+                            }
+
+                            // Simpan stok sebelum pengurangan
+                            $stockBefore = $ingredientStockStore->quantity;
+
+                            // Kurangi stok
+                            DB::table('stock_stores')
+                                ->where('id', $ingredientStockStore->id)
+                                ->decrement('quantity', $quantityToReduce);
+
+                            // Muat ulang data
+                            $ingredientStockStore->refresh();
+
+                            Log::info('Stok bahan berhasil dikurangi', [
+                                'ingredient_id' => $ingredient->id,
+                                'ingredient_name' => $ingredient->name,
+                                'before' => $stockBefore,
+                                'reduced_by' => $quantityToReduce,
+                                'after' => $ingredientStockStore->quantity
+                            ]);
                         }
-
-                        // Reduce stock
-                        $ingredientStockStore->decrement('quantity', $ingredientQuantity);
+                    } catch (\Exception $e) {
+                        Log::error('Error saat memproses bahan produk', [
+                            'product_id' => $product->id,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        throw $e;
                     }
                 } else {
-                    // For regular products, proceed with normal stock reduction
+                    Log::info('Memproses produk reguler', [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name
+                    ]);
 
-                    // Convert quantity to base unit if necessary
+                    // Untuk produk reguler, konversi ke satuan dasar jika diperlukan
                     $baseQuantity = $item['quantity'];
-                    if ($item['unit_id'] !== $product->base_unit_id) {
-                        // Use helper for unit conversion
-                        $baseQuantity = \App\Helpers\UnitConversion::convert(
+
+                    // Jika unit yang digunakan berbeda dengan unit dasar produk
+                    if ($item['unit_id'] != $product->base_unit_id) {
+                        Log::info('Perlu konversi satuan untuk produk reguler', [
+                            'product_name' => $product->name,
+                            'from_unit_id' => $item['unit_id'],
+                            'to_unit_id' => $product->base_unit_id
+                        ]);
+
+                        // Gunakan UnitConverter untuk konversi
+                        $baseQuantity = UnitConverter::convert(
                             $item['quantity'],
                             $item['unit_id'],
-                            $product->base_unit_id,
-                            $product->id
+                            $product->base_unit_id
                         );
 
                         if ($baseQuantity === null) {
-                            throw new \Exception("Cannot convert unit for product {$product->name}.");
+                            Log::error('Konversi satuan gagal untuk produk reguler', [
+                                'product_name' => $product->name,
+                                'from_unit_id' => $item['unit_id'],
+                                'to_unit_id' => $product->base_unit_id
+                            ]);
+
+                            throw new \Exception("Tidak dapat mengkonversi satuan untuk produk {$product->name}");
                         }
+
+                        Log::info('Konversi satuan produk reguler berhasil', [
+                            'product_name' => $product->name,
+                            'original_quantity' => $item['quantity'],
+                            'converted_quantity' => $baseQuantity
+                        ]);
                     }
 
-                    // Update or create stock store
+                    // Dapatkan atau buat stok dengan satuan dasar
                     $stockStore = StockStore::firstOrCreate(
                         [
                             'store_id' => $saleData['store_id'],
@@ -249,24 +445,67 @@ class SaleController extends Controller
                         ['quantity' => 0]
                     );
 
+                    Log::info('Stok produk ditemukan', [
+                        'stock_id' => $stockStore->id,
+                        'current_quantity' => $stockStore->quantity,
+                        'needed_quantity' => $baseQuantity
+                    ]);
+
+                    // Cek stok
                     if ($stockStore->quantity < $baseQuantity) {
-                        throw new \Exception("Not enough stock for product {$product->name}.");
+                        Log::warning('Stok produk tidak cukup', [
+                            'product_id' => $product->id,
+                            'product_name' => $product->name,
+                            'available' => $stockStore->quantity,
+                            'needed' => $baseQuantity
+                        ]);
+
+                        throw new \Exception("Stok tidak cukup untuk produk {$product->name}.");
                     }
 
-                    $stockStore->decrement('quantity', $baseQuantity);
+                    // Simpan stok sebelum pengurangan
+                    $stockBefore = $stockStore->quantity;
+
+                    // Kurangi stok dengan query database langsung
+                    DB::table('stock_stores')
+                        ->where('id', $stockStore->id)
+                        ->decrement('quantity', $baseQuantity);
+
+                    // Muat ulang data dari database
+                    $stockStore->refresh();
+
+                    Log::info('Stok produk berhasil dikurangi', [
+                        'product_id' => $product->id,
+                        'before' => $stockBefore,
+                        'reduced_by' => $baseQuantity,
+                        'after' => $stockStore->quantity
+                    ]);
                 }
             }
 
+            // Commit transaction
             DB::commit();
+
+            Log::info('Transaksi penjualan berhasil', [
+                'sale_id' => $sale->id,
+                'invoice' => $sale->invoice_number
+            ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Sale processed successfully.',
+                'message' => 'Penjualan berhasil diproses.',
                 'invoice_number' => $sale->invoice_number,
                 'receipt_url' => route('sales.receipt', $sale),
             ]);
         } catch (\Exception $e) {
+            // Rollback transaction in case of error
             DB::rollBack();
+
+            Log::error('Error saat memproses penjualan', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),

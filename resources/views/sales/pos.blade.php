@@ -173,42 +173,41 @@
                     <div class="products-container">
                         <div class="row" id="products-grid">
                             @foreach($products as $product)
-                                @php
-                                    $productStock = $product->storeStock ? $product->storeStock->quantity : 0;
-                                    $outOfStock = $productStock <= 0;
-                                @endphp
-                                <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
-                                    <div class="card product-card {{ $outOfStock ? 'out-of-stock' : '' }}"
-                                        data-id="{{ $product->id }}"
-                                        data-code="{{ $product->code }}"
-                                        data-name="{{ $product->name }}"
-                                        data-price="{{ $product->selling_price }}"
-                                        data-unit-id="{{ $product->base_unit_id }}"
-                                        data-unit-name="{{ $product->baseUnit->name }}"
-                                        data-stock="{{ $productStock }}"
-                                        data-is-processed="{{ $product->is_processed ? 'true' : 'false' }}">
-                                        @if($product->is_processed)
-                                            <span class="processed-badge">
-                                                <i class="fas fa-mortar-pestle me-1"></i> Olahan
-                                            </span>
+                            @php
+                                $productStock = $product->storeStock ? $product->storeStock->quantity : 0;
+                                $outOfStock = $productStock <= 0;
+                            @endphp
+                            <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
+                                <div class="card product-card {{ $outOfStock ? 'out-of-stock' : '' }}"
+                                    data-id="{{ $product->id }}"
+                                    data-code="{{ $product->code }}"
+                                    data-name="{{ $product->name }}"
+                                    data-price="{{ $product->selling_price }}"
+                                    data-unit-id="{{ $product->base_unit_id }}"
+                                    data-unit-name="{{ $product->baseUnit->name }}"
+                                    data-stock="{{ $productStock }}"
+                                    data-is-processed="{{ $product->is_processed ? 'true' : 'false' }}">
+                                    @if($product->is_processed)
+                                        <span class="processed-badge">
+                                            <i class="fas fa-mortar-pestle me-1"></i> Olahan
+                                        </span>
+                                    @endif
+                                    <div class="text-center">
+                                        @if($product->image)
+                                            <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="product-image">
+                                        @else
+                                            <div class="product-image d-flex align-items-center justify-content-center bg-light">
+                                                <i class="fas fa-box fa-3x text-secondary"></i>
+                                            </div>
                                         @endif
-                                        <div class="text-center">
-                                            @if($product->image)
-                                                <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="product-image">
-                                            @else
-                                                <div class="product-image d-flex align-items-center justify-content-center bg-light">
-                                                    <i class="fas fa-box fa-3x text-secondary"></i>
-                                                </div>
-                                            @endif
-                                        </div>
-                                        <div class="card-body p-2 text-center">
-                                            <h6 class="card-title mb-1 text-truncate">{{ $product->name }}</h6>
-                                            <p class="card-text text-primary fw-bold mb-0">Rp {{ number_format($product->selling_price, 0, ',', '.') }}</p>
-                                            <small class="text-muted stock-info">Stok: {{ intval($productStock) }} {{ $product->baseUnit->name }}</small>
-                                        </div>
+                                    </div>
+                                    <div class="card-body p-2 text-center">
+                                        <h6 class="card-title mb-1 text-truncate">{{ $product->name }}</h6>
+                                        <p class="card-text text-primary fw-bold mb-0">Rp {{ number_format($product->selling_price, 0, ',', '.') }}</p>
                                     </div>
                                 </div>
-                            @endforeach
+                            </div>
+                        @endforeach
                         </div>
                     </div>
                 </div>
@@ -378,6 +377,22 @@
         let taxEnabled = false; // Pajak dinonaktifkan secara default
         let selectedProduct = null;
 
+        // Log status produk olahan untuk debugging
+        console.log('Mencari produk olahan di halaman:');
+        $('.product-card').each(function() {
+            const $this = $(this);
+            const isProcessed = $this.data('is-processed');
+
+            if (isProcessed === true || isProcessed === 'true' || isProcessed === 1 || isProcessed === '1') {
+                console.log('Produk olahan ditemukan:', {
+                    id: $this.data('id'),
+                    name: $this.data('name'),
+                    is_processed: isProcessed,
+                    type: typeof isProcessed
+                });
+            }
+        });
+
         // Format number with thousand separator
         function formatNumber(number) {
             return number.toFixed(0).replace(/\d(?=(\d{3})+$)/g, '$&.');
@@ -512,34 +527,45 @@
             }
         });
 
-        // Fetch ingredients for processed product
         function fetchIngredients(productId, callback) {
-            $.ajax({
-                url: "{{ route('products.ingredients') }}",
-                type: "GET",
-                data: {
-                    product_id: productId
-                },
-                success: function(response) {
-                    if (response.success) {
-                        callback(response.ingredients);
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Gagal',
-                            text: response.message || 'Gagal mendapatkan bahan produk'
-                        });
-                    }
-                },
-                error: function() {
+        console.log('Fetching ingredients for product ID:', productId);
+
+        // Gunakan endpoint API alih-alih route web
+        const baseUrl = window.location.origin;
+        $.ajax({
+            url: baseUrl + "/api/products/ingredients",
+            type: "GET",
+            data: {
+                product_id: productId
+            },
+            success: function(response) {
+                console.log('Ingredients response:', response);
+
+                if (response.success) {
+                    callback(response.ingredients);
+                } else {
+                    console.error('Error fetching ingredients:', response.message);
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal',
-                        text: 'Terjadi kesalahan saat mengambil data bahan produk'
+                        text: response.message || 'Gagal mendapatkan bahan produk'
                     });
                 }
-            });
-        }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', xhr, status, error);
+                console.error('Error status:', status);
+                console.error('Error message:', error);
+                console.error('Error response:', xhr.responseText);
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal',
+                    text: 'Terjadi kesalahan saat mengambil data bahan produk'
+                });
+            }
+        });
+    }
 
         // Handle adding product to cart
         function addProductToCart(product, showIngredients = true) {
@@ -548,7 +574,16 @@
             const productPrice = parseFloat(product.data('price'));
             const unitId = product.data('unit-id');
             const unitName = product.data('unit-name');
-            const isProcessed = product.data('is-processed') === 'true' ? 1 : 0;
+
+            // Konversi eksplisit nilai is_processed
+            const isProcessedRaw = product.data('is-processed');
+            console.log('Raw is_processed value for ' + productName + ':', isProcessedRaw, 'type:', typeof isProcessedRaw);
+
+            // Konversi ke nilai boolean/numeric yang tepat
+            const isProcessed = (isProcessedRaw === true || isProcessedRaw === 'true' || isProcessedRaw === '1' || isProcessedRaw === 1) ? 1 : 0;
+
+            console.log('Converted is_processed value for ' + productName + ':', isProcessed);
+
             const currentStock = parseFloat(product.data('stock'));
 
             // Jika stok 0 atau kartu memiliki class out-of-stock, tampilkan pesan error dan hentikan proses
@@ -615,7 +650,7 @@
                     quantity: 1,
                     unit_id: unitId,
                     unit_name: unitName,
-                    is_processed: isProcessed,
+                    is_processed: isProcessed,  // Menggunakan nilai yang sudah dikonversi
                     stock: currentStock // Simpan informasi stok untuk pengecekan selanjutnya
                 });
             }
@@ -625,6 +660,16 @@
 
         // Add product to cart when clicked
         $(document).on('click', '.product-card', function() {
+            // Debug info
+            const productName = $(this).data('name');
+            const isProcessed = $(this).data('is-processed');
+            console.log('Mengklik produk:', {
+                id: $(this).data('id'),
+                name: productName,
+                is_processed: isProcessed,
+                type: typeof isProcessed
+            });
+
             // Hanya proses jika produk bukan out-of-stock
             if (!$(this).hasClass('out-of-stock')) {
                 addProductToCart($(this));
@@ -742,26 +787,50 @@
                 return;
             }
 
-            // Prepare data for submission with proper taxEnabled value
-            const taxEnabledValue = taxEnabled ? 1 : 0; // Convert to 1/0 instead of true/false
+            // Log nilai is_processed di keranjang sebelum checkout
+            console.log('Memeriksa nilai is_processed di keranjang sebelum checkout:');
+            cartItems.forEach((item, index) => {
+                console.log(`Item #${index}:`, {
+                    name: item.name,
+                    is_processed_before: item.is_processed,
+                    is_processed_type: typeof item.is_processed
+                });
 
-            // Deep copy and modify cart items to ensure proper is_processed value format
+                // Pastikan nilai is_processed adalah 1 atau 0, bukan true/false atau string
+                item.is_processed = (item.is_processed === true || item.is_processed === 'true' || item.is_processed === 1 || item.is_processed === '1') ? 1 : 0;
+
+                console.log(`Item #${index} setelah konversi:`, {
+                    name: item.name,
+                    is_processed_after: item.is_processed,
+                    is_processed_type: typeof item.is_processed
+                });
+            });
+
+            // Persiapkan data untuk pengiriman dengan nilai taxEnabled yang benar
+            const taxEnabledValue = taxEnabled ? 1 : 0; // Konversi ke 1/0 bukan true/false
+
+            // Deep copy dan modifikasi item keranjang untuk memastikan format nilai is_processed benar
             const itemsForSubmission = cartItems.map(item => ({
                 product_id: item.product_id,
                 unit_id: item.unit_id,
                 quantity: item.quantity,
                 price: item.price,
-                discount: 0, // Individual item discount not implemented in this UI
+                discount: 0, // Diskon item individual tidak diimplementasikan di UI ini
                 subtotal: item.quantity * item.price,
-                is_processed: item.is_processed ? 1 : 0 // Ensure it's 1/0 not true/false
+                is_processed: item.is_processed // Sudah dipastikan bernilai 1 atau 0
             }));
 
+            // Log data yang akan dikirim
+            console.log('Data yang akan dikirim ke server:', {
+                items: itemsForSubmission
+            });
+
             const data = {
-                store_id: {{ Auth::user()->store_id ?? 1 }}, // Default to 1 if store_id not set
+                store_id: {{ Auth::user()->store_id ?? 1 }}, // Default ke 1 jika store_id tidak diatur
                 payment_type: paymentType,
                 customer_name: customerName,
                 discount: discount,
-                tax_enabled: taxEnabledValue, // Send as 1 or 0
+                tax_enabled: taxEnabledValue, // Kirim sebagai 1 atau 0
                 tax: tax,
                 total_amount: total,
                 total_payment: paidAmount,
@@ -769,7 +838,17 @@
                 items: itemsForSubmission
             };
 
-            // Submit data to server
+            // Tampilkan loading indicator
+            Swal.fire({
+                title: 'Sedang Memproses',
+                text: 'Mohon tunggu, transaksi sedang diproses...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Submit data ke server
             $.ajax({
                 url: "{{ route('pos.process') }}",
                 type: "POST",
@@ -778,8 +857,10 @@
                     sale: data
                 },
                 success: function(response) {
+                    Swal.close(); // Tutup loading indicator
+
                     if (response.success) {
-                        // Show success modal
+                        // Tampilkan modal sukses
                         $('#success-invoice').text(response.invoice_number);
                         $('#success-total').text("Rp " + formatNumber(total));
                         $('#success-change').text("Rp " + formatNumber(paidAmount - total > 0 ? paidAmount - total : 0));
@@ -790,7 +871,7 @@
                         // Tampilkan modal sukses
                         $('#payment-success-modal').modal('show');
 
-                        // Clear cart for new sale
+                        // Clear keranjang untuk penjualan baru
                         cartItems = [];
                         updateCartTable();
                         $('#discount').val(0);
@@ -798,16 +879,25 @@
                         $('#customer-name').val('');
                         $('#tax-enabled').prop('checked', false);
                         taxEnabled = false;
+
+                        console.log('Transaksi berhasil:', response);
                     } else {
+                        console.error('Error dengan response success=false:', response);
                         Swal.fire({
                             icon: 'error',
                             title: 'Gagal',
-                            text: response.message || 'Terjadi kesalahan saat memproses penjualan'
+                            text: response.message || 'Terjadi kesalahan saat memproses penjualan',
+                            confirmButtonText: 'Coba Lagi'
                         });
                     }
                 },
                 error: function(xhr) {
+                    Swal.close(); // Tutup loading indicator
+
                     let errorMessage = 'Terjadi kesalahan saat memproses penjualan.';
+
+                    // Log respons error secara lengkap
+                    console.error("Detail error:", xhr);
 
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMessage = xhr.responseJSON.message;
@@ -816,12 +906,12 @@
                     // Tampilkan detail error untuk debugging
                     console.error("Error details:", xhr.responseJSON);
 
-                    // Show error specific to validation if available
+                    // Tampilkan error spesifik validasi jika tersedia
                     if (xhr.responseJSON && xhr.responseJSON.errors) {
                         const validationErrors = xhr.responseJSON.errors;
                         console.error("Validation errors:", validationErrors);
 
-                        // Create a more detailed error message
+                        // Buat pesan error yang lebih detail
                         const errorMessages = [];
                         for (const field in validationErrors) {
                             errorMessages.push(validationErrors[field][0]);
@@ -838,7 +928,8 @@
                         text: errorMessage,
                         customClass: {
                             content: 'text-start'
-                        }
+                        },
+                        confirmButtonText: 'Coba Lagi'
                     });
                 }
             });

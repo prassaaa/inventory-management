@@ -114,7 +114,7 @@
                             <td class="border-0 text-end">Rp {{ number_format($sale->change, 0, ',', '.') }}</td>
                         </tr>
                     </table>
-                    
+
                     <div class="d-flex justify-content-center mt-4">
                         <div class="card border-0 bg-success" style="max-width: 320px;">
                             <div class="card-body py-3">
@@ -163,7 +163,7 @@
                                     <strong>{{ $detail->product->code }}</strong> - {{ $detail->product->name }}
                                 </a>
                             </td>
-                            <td>{{ $detail->quantity }}</td>
+                            <td>{{ intval($detail->quantity) }}</td>
                             <td>{{ $detail->unit->name }}</td>
                             <td>Rp {{ number_format($detail->price, 0, ',', '.') }}</td>
                             <td>Rp {{ number_format($detail->discount, 0, ',', '.') }}</td>
