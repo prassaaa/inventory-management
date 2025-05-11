@@ -343,29 +343,6 @@
         </div>
     </div>
 </div>
-
-<!-- Ingredients Modal -->
-<div class="modal fade" id="ingredients-modal" tabindex="-1" aria-labelledby="ingredientsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-white">
-                <h5 class="modal-title" id="ingredientsModalLabel">Informasi Produk Olahan</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>Produk ini adalah produk olahan yang akan mengurangi stok bahan-bahan berikut:</p>
-                <ul id="ingredients-list" class="list-group mb-3">
-                    <!-- Ingredients will be added here -->
-                </ul>
-                <p>Apakah Anda ingin melanjutkan menambahkan produk ini ke keranjang?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-primary" id="confirm-add-processed">Lanjutkan</button>
-            </div>
-        </div>
-    </div>
-</div>
 @endsection
 
 @section('scripts')
@@ -375,23 +352,6 @@
         let cartItems = [];
         let taxRate = 0.1; // 10%
         let taxEnabled = false; // Pajak dinonaktifkan secara default
-        let selectedProduct = null;
-
-        // Log status produk olahan untuk debugging
-        console.log('Mencari produk olahan di halaman:');
-        $('.product-card').each(function() {
-            const $this = $(this);
-            const isProcessed = $this.data('is-processed');
-
-            if (isProcessed === true || isProcessed === 'true' || isProcessed === 1 || isProcessed === '1') {
-                console.log('Produk olahan ditemukan:', {
-                    id: $this.data('id'),
-                    name: $this.data('name'),
-                    is_processed: isProcessed,
-                    type: typeof isProcessed
-                });
-            }
-        });
 
         // Format number with thousand separator
         function formatNumber(number) {
@@ -527,63 +487,15 @@
             }
         });
 
-        function fetchIngredients(productId, callback) {
-        console.log('Fetching ingredients for product ID:', productId);
-
-        // Gunakan endpoint API alih-alih route web
-        const baseUrl = window.location.origin;
-        $.ajax({
-            url: baseUrl + "/api/products/ingredients",
-            type: "GET",
-            data: {
-                product_id: productId
-            },
-            success: function(response) {
-                console.log('Ingredients response:', response);
-
-                if (response.success) {
-                    callback(response.ingredients);
-                } else {
-                    console.error('Error fetching ingredients:', response.message);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Gagal',
-                        text: response.message || 'Gagal mendapatkan bahan produk'
-                    });
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('AJAX error:', xhr, status, error);
-                console.error('Error status:', status);
-                console.error('Error message:', error);
-                console.error('Error response:', xhr.responseText);
-
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Gagal',
-                    text: 'Terjadi kesalahan saat mengambil data bahan produk'
-                });
-            }
-        });
-    }
-
-        // Handle adding product to cart
-        function addProductToCart(product, showIngredients = true) {
+        // Handle adding product to cart - Direvisi untuk menghapus popup ingredients
+        function addProductToCart(product) {
             const productId = product.data('id');
             const productName = product.data('name');
             const productPrice = parseFloat(product.data('price'));
             const unitId = product.data('unit-id');
             const unitName = product.data('unit-name');
-
-            // Konversi eksplisit nilai is_processed
-            const isProcessedRaw = product.data('is-processed');
-            console.log('Raw is_processed value for ' + productName + ':', isProcessedRaw, 'type:', typeof isProcessedRaw);
-
-            // Konversi ke nilai boolean/numeric yang tepat
-            const isProcessed = (isProcessedRaw === true || isProcessedRaw === 'true' || isProcessedRaw === '1' || isProcessedRaw === 1) ? 1 : 0;
-
-            console.log('Converted is_processed value for ' + productName + ':', isProcessed);
-
+            const isProcessed = (product.data('is-processed') === true || product.data('is-processed') === 'true' ||
+                               product.data('is-processed') === '1' || product.data('is-processed') === 1) ? 1 : 0;
             const currentStock = parseFloat(product.data('stock'));
 
             // Jika stok 0 atau kartu memiliki class out-of-stock, tampilkan pesan error dan hentikan proses
@@ -593,32 +505,6 @@
                     title: 'Stok Habis',
                     text: `Produk "${productName}" tidak tersedia (stok: 0)`
                 });
-                return;
-            }
-
-            // For processed products, show ingredients first if showIngredients is true
-            if (isProcessed && showIngredients) {
-                selectedProduct = product;
-
-                // Fetch ingredients and show modal
-                fetchIngredients(productId, function(ingredients) {
-                    // Clear previous ingredients
-                    $('#ingredients-list').empty();
-
-                    // Add ingredients to the list
-                    ingredients.forEach(ingredient => {
-                        $('#ingredients-list').append(`
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                ${ingredient.name}
-                                <span class="badge bg-primary rounded-pill">${ingredient.quantity} ${ingredient.unit_name}</span>
-                            </li>
-                        `);
-                    });
-
-                    // Show the modal
-                    $('#ingredients-modal').modal('show');
-                });
-
                 return;
             }
 
@@ -650,8 +536,8 @@
                     quantity: 1,
                     unit_id: unitId,
                     unit_name: unitName,
-                    is_processed: isProcessed,  // Menggunakan nilai yang sudah dikonversi
-                    stock: currentStock // Simpan informasi stok untuk pengecekan selanjutnya
+                    is_processed: isProcessed,
+                    stock: currentStock
                 });
             }
 
@@ -660,16 +546,6 @@
 
         // Add product to cart when clicked
         $(document).on('click', '.product-card', function() {
-            // Debug info
-            const productName = $(this).data('name');
-            const isProcessed = $(this).data('is-processed');
-            console.log('Mengklik produk:', {
-                id: $(this).data('id'),
-                name: productName,
-                is_processed: isProcessed,
-                type: typeof isProcessed
-            });
-
             // Hanya proses jika produk bukan out-of-stock
             if (!$(this).hasClass('out-of-stock')) {
                 addProductToCart($(this));
@@ -680,17 +556,6 @@
                     title: 'Stok Habis',
                     text: `Produk "${productName}" tidak tersedia (stok: 0)`
                 });
-            }
-        });
-
-        // Handle confirmation from ingredients modal
-        $('#confirm-add-processed').click(function() {
-            $('#ingredients-modal').modal('hide');
-
-            if (selectedProduct) {
-                // Add product to cart without showing ingredients modal again
-                addProductToCart(selectedProduct, false);
-                selectedProduct = null;
             }
         });
 
@@ -787,29 +652,7 @@
                 return;
             }
 
-            // Log nilai is_processed di keranjang sebelum checkout
-            console.log('Memeriksa nilai is_processed di keranjang sebelum checkout:');
-            cartItems.forEach((item, index) => {
-                console.log(`Item #${index}:`, {
-                    name: item.name,
-                    is_processed_before: item.is_processed,
-                    is_processed_type: typeof item.is_processed
-                });
-
-                // Pastikan nilai is_processed adalah 1 atau 0, bukan true/false atau string
-                item.is_processed = (item.is_processed === true || item.is_processed === 'true' || item.is_processed === 1 || item.is_processed === '1') ? 1 : 0;
-
-                console.log(`Item #${index} setelah konversi:`, {
-                    name: item.name,
-                    is_processed_after: item.is_processed,
-                    is_processed_type: typeof item.is_processed
-                });
-            });
-
-            // Persiapkan data untuk pengiriman dengan nilai taxEnabled yang benar
-            const taxEnabledValue = taxEnabled ? 1 : 0; // Konversi ke 1/0 bukan true/false
-
-            // Deep copy dan modifikasi item keranjang untuk memastikan format nilai is_processed benar
+            // Pastikan nilai is_processed adalah 1 atau 0
             const itemsForSubmission = cartItems.map(item => ({
                 product_id: item.product_id,
                 unit_id: item.unit_id,
@@ -817,20 +660,16 @@
                 price: item.price,
                 discount: 0, // Diskon item individual tidak diimplementasikan di UI ini
                 subtotal: item.quantity * item.price,
-                is_processed: item.is_processed // Sudah dipastikan bernilai 1 atau 0
+                is_processed: (item.is_processed === true || item.is_processed === 'true' ||
+                              item.is_processed === '1' || item.is_processed === 1) ? 1 : 0
             }));
-
-            // Log data yang akan dikirim
-            console.log('Data yang akan dikirim ke server:', {
-                items: itemsForSubmission
-            });
 
             const data = {
                 store_id: {{ Auth::user()->store_id ?? 1 }}, // Default ke 1 jika store_id tidak diatur
                 payment_type: paymentType,
                 customer_name: customerName,
                 discount: discount,
-                tax_enabled: taxEnabledValue, // Kirim sebagai 1 atau 0
+                tax_enabled: taxEnabled ? 1 : 0,
                 tax: tax,
                 total_amount: total,
                 total_payment: paidAmount,
@@ -896,22 +735,13 @@
 
                     let errorMessage = 'Terjadi kesalahan saat memproses penjualan.';
 
-                    // Log respons error secara lengkap
-                    console.error("Detail error:", xhr);
-
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMessage = xhr.responseJSON.message;
                     }
 
-                    // Tampilkan detail error untuk debugging
-                    console.error("Error details:", xhr.responseJSON);
-
                     // Tampilkan error spesifik validasi jika tersedia
                     if (xhr.responseJSON && xhr.responseJSON.errors) {
                         const validationErrors = xhr.responseJSON.errors;
-                        console.error("Validation errors:", validationErrors);
-
-                        // Buat pesan error yang lebih detail
                         const errorMessages = [];
                         for (const field in validationErrors) {
                             errorMessages.push(validationErrors[field][0]);

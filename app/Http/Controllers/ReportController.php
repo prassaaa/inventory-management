@@ -34,9 +34,13 @@ class ReportController extends Controller
      */
     public function sales(Request $request)
     {
+        // Cek user yang login apakah terkait dengan toko tertentu
+        $user = Auth::user();
+        $userStoreId = $user->store_id ?? null; // Asumsi ada field store_id di tabel users
+
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
-        $storeId = $request->input('store_id');
+        $storeId = $userStoreId ? $userStoreId : $request->input('store_id');
         $paymentType = $request->input('payment_type');
 
         $query = Sale::with(['store', 'creator'])
@@ -69,8 +73,11 @@ class ReportController extends Controller
         // Get top products
         $top_products = $this->getTopSellingProducts($startDate, $endDate, $storeId);
 
-        // Get all stores for filter
-        $stores = Store::where('is_active', true)->orderBy('name')->get();
+        // Get all stores for filter (hanya jika user tidak terkait toko tertentu)
+        $stores = $userStoreId ? collect([Store::find($userStoreId)]) : Store::where('is_active', true)->orderBy('name')->get();
+
+        // Variabel untuk menentukan apakah tampilkan filter toko atau tidak
+        $canSelectStore = !$userStoreId;
 
         return view('reports.sales', compact(
             'sales',
@@ -79,7 +86,9 @@ class ReportController extends Controller
             'payment_methods',
             'chart_data',
             'top_products',
-            'stores'
+            'stores',
+            'canSelectStore',
+            'userStoreId'
         ));
     }
 
@@ -1015,5 +1024,56 @@ public function payables(Request $request)
 
         // Export to Excel
         return Excel::download(new SalesByStoreExport($storesSales, $totalOmzet, $startDate, $endDate), 'penjualan_per_toko.xlsx');
+    }
+
+    /**
+     * Print daily sales report on receipt paper for a store.
+     */
+    public function printDailySalesReceipt(Request $request)
+    {
+        $date = $request->input('date', now()->format('Y-m-d'));
+
+        // Cek user yang login apakah terkait dengan toko tertentu
+        $user = Auth::user();
+        $userStoreId = $user->store_id ?? null;
+
+        // Gunakan store_id user jika ada, atau ambil dari request
+        $storeId = $userStoreId ? $userStoreId : $request->input('store_id');
+
+        if (!$storeId) {
+            return redirect()->back()->with('error', 'Store ID is required');
+        }
+
+        $store = Store::findOrFail($storeId);
+
+        // Get sales data for the day WITH DETAILS and PRODUCTS
+        $salesQuery = Sale::with(['saleDetails.product', 'saleDetails.unit'])
+            ->where('store_id', $storeId)
+            ->whereDate('date', $date);
+
+        $sales = $salesQuery->get();
+
+        // Calculate summary
+        $total_sales = $sales->sum('total_amount');
+        $total_transactions = $sales->count();
+
+        // Get payment methods breakdown
+        $payment_methods = $sales->groupBy('payment_type')
+            ->map(function ($items) {
+                return [
+                    'count' => $items->count(),
+                    'amount' => $items->sum('total_amount')
+                ];
+            })
+            ->toArray();
+
+        return view('reports.print.daily_sales_receipt', compact(
+            'store',
+            'date',
+            'sales',
+            'total_sales',
+            'total_transactions',
+            'payment_methods'
+        ));
     }
 }

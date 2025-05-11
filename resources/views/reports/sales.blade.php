@@ -25,18 +25,20 @@
         <div class="card-body">
             <form action="{{ route('reports.sales') }}" method="GET">
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-{{ $canSelectStore ? '3' : '4' }}">
                         <div class="form-group mb-3">
                             <label for="start_date" class="form-label">Tanggal Mulai</label>
                             <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request('start_date', now()->startOfMonth()->format('Y-m-d')) }}">
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-{{ $canSelectStore ? '3' : '4' }}">
                         <div class="form-group mb-3">
                             <label for="end_date" class="form-label">Tanggal Selesai</label>
                             <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request('end_date', now()->format('Y-m-d')) }}">
                         </div>
                     </div>
+
+                    @if($canSelectStore)
                     <div class="col-md-3">
                         <div class="form-group mb-3">
                             <label for="store_id" class="form-label">Toko</label>
@@ -50,7 +52,12 @@
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    @else
+                        <!-- Jika user terkait toko tertentu, tambahkan hidden input -->
+                        <input type="hidden" name="store_id" id="store_id" value="{{ $userStoreId }}">
+                    @endif
+
+                    <div class="col-md-{{ $canSelectStore ? '3' : '4' }}">
                         <div class="form-group mb-3">
                             <label for="payment_type" class="form-label">Metode Pembayaran</label>
                             <select class="form-select" id="payment_type" name="payment_type">
@@ -70,6 +77,12 @@
                     <a href="{{ route('reports.sales') }}" class="btn btn-secondary">
                         <i class="fas fa-sync me-1"></i> Reset
                     </a>
+
+                    @if($userStoreId || request('store_id'))
+                        <button type="button" id="printReceiptBtn" class="btn btn-info ms-2 text-white">
+                            <i class="fas fa-print me-1 text-white"></i> Print Struk Kasir
+                        </button>
+                    @endif
                 </div>
             </form>
         </div>
@@ -372,6 +385,18 @@
             return new bootstrap.Tooltip(tooltipTriggerEl, {
                 trigger: 'hover'
             });
+        });
+
+        // Handle print receipt button
+        $('#printReceiptBtn').on('click', function() {
+            var storeId = $('#store_id').val();
+            var date = $('#end_date').val(); // Gunakan tanggal akhir sebagai tanggal laporan
+
+            // Gunakan URL dari route baru
+            var printUrl = "/print-daily-sales?store_id=" + storeId + "&date=" + date;
+
+            // Buka jendela baru dalam ukuran penuh (tanpa parameter size)
+            window.open(printUrl, '_blank');
         });
     });
 </script>

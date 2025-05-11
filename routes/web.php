@@ -164,11 +164,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('stock-opnames/get-products', [StockOpnameController::class, 'getProducts'])->name('stock-opnames.get-products');
     });
 
+    // Route cetak laporan harian kasir di luar group untuk memudahkan debugging
+    Route::get('/print-daily-sales', [ReportController::class, 'printDailySalesReceipt'])->name('print.daily.sales');
+
     // Report Routes
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::group(['middleware' => ['permission:view sales']], function () {
             Route::get('/sales', [ReportController::class, 'sales'])->name('sales');
             Route::get('/sales/export', [ReportController::class, 'exportSales'])->name('sales.export');
+
+            // Perbaiki rute yang bermasalah
+            Route::get('/sales/print-receipt', [ReportController::class, 'printDailySalesReceipt'])->name('sales.print-receipt');
 
             // Laporan Penjualan Per Toko (Peringkat berdasarkan omzet)
             Route::get('/sales-by-store', [ReportController::class, 'salesByStore'])->name('sales-by-store');

@@ -5,51 +5,84 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SaleDetail;
 use App\Models\StockWarehouse;
+use App\Models\StockStore;
 use App\Models\StoreOrder;
+use App\Models\Purchase;
+use App\Models\Store;
+use App\Models\Category;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        Log::info('Dashboard accessed by: ' . Auth::user()->name);
+
         try {
+            // Debug: Tinjau koneksi database
+            try {
+                DB::connection()->getPdo();
+                Log::info('Database connection successful');
+            } catch (\Exception $e) {
+                Log::error('Database connection failed: ' . $e->getMessage());
+                return view('dashboard.index', [
+                    'error' => 'Database connection failed: ' . $e->getMessage()
+                ]);
+            }
+
             // Total Products
-            $totalProducts = Product::count();
+            $totalProducts = $this->getTotalProducts();
+            Log::info('Total products: ' . $totalProducts);
 
             // Today's Sales
-            $todaySales = Sale::whereDate('date', Carbon::today())->sum('total_amount');
+            $todaySales = $this->getTodaySales();
+            Log::info('Today sales: ' . $todaySales);
 
             // Low Stock Count
-            $lowStockCount = Product::whereHas('stockWarehouses', function ($query) {
-                $query->whereColumn('quantity', '<', 'products.min_stock');
-            })->count();
+            $lowStockCount = $this->getLowStockCount();
+            Log::info('Low stock count: ' . $lowStockCount);
 
             // Pending Orders
-            $pendingOrders = StoreOrder::where('status', 'pending')->count();
+            $pendingOrders = $this->getPendingOrders();
+            Log::info('Pending orders: ' . $pendingOrders);
 
             // Sales Chart Data (last 7 days)
             $salesChartData = $this->getSalesChartData();
+            Log::info('Sales chart data generated: ' . count($salesChartData['labels']) . ' data points');
 
             // Top Products Data
             $topProductsData = $this->getTopProductsData();
+            Log::info('Top products data generated: ' . count($topProductsData['labels']) . ' products');
 
             // Recent Transactions
             $recentTransactions = $this->getRecentTransactions();
+            Log::info('Recent transactions: ' . count($recentTransactions) . ' found');
+
+            // Store Orders
+            $recentStoreOrders = $this->getRecentStoreOrders();
+            Log::info('Recent store orders: ' . count($recentStoreOrders) . ' found');
 
             return view('dashboard.index', compact(
                 'totalProducts',
                 'todaySales',
                 'lowStockCount',
                 'pendingOrders',
-                'pendingStoreOrders',
                 'salesChartData',
                 'topProductsData',
-                'recentTransactions'
+                'recentTransactions',
+                'recentStoreOrders'
             ));
+
         } catch (\Exception $e) {
-            // Jika terjadi error, tampilkan dashboard dengan data minimal
+            Log::error('Dashboard error: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
+
+            // Return dashboard with error message
             return view('dashboard.index', [
                 'totalProducts' => 0,
                 'todaySales' => 0,
@@ -57,8 +90,69 @@ class DashboardController extends Controller
                 'pendingOrders' => 0,
                 'salesChartData' => ['labels' => [], 'data' => []],
                 'topProductsData' => ['labels' => [], 'data' => []],
-                'recentTransactions' => []
+                'recentTransactions' => [],
+                'error' => 'Terjadi kesalahan saat memuat dashboard: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    private function getTotalProducts()
+    {
+        return Product::where('is_active', true)->count();
+    }
+
+    private function getTodaySales()
+    {
+        $query = Sale::whereDate('date', Carbon::today());
+
+        if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id) {
+            $query->where('store_id', Auth::user()->store_id);
+        }
+
+        return $query->sum('total_amount');
+    }
+
+    private function getLowStockCount()
+    {
+        if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id) {
+            // Get store stock under minimum
+            $count = DB::table('stock_stores')
+                ->join('products', 'stock_stores.product_id', '=', 'products.id')
+                ->where('stock_stores.store_id', Auth::user()->store_id)
+                ->where('products.is_active', true)
+                ->whereColumn('stock_stores.quantity', '<', 'products.min_stock')
+                ->count();
+
+            Log::info("Low stock count for store {$Auth::user()->store_id}: {$count}");
+            return $count;
+        } else {
+            // Get warehouse stock under minimum
+            $count = DB::table('stock_warehouses')
+                ->join('products', 'stock_warehouses.product_id', '=', 'products.id')
+                ->where('products.is_active', true)
+                ->whereColumn('stock_warehouses.quantity', '<', 'products.min_stock')
+                ->count();
+
+            Log::info("Low stock count for warehouse: {$count}");
+            return $count;
+        }
+    }
+
+    private function getPendingOrders()
+    {
+        if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id) {
+            // For store admin, count pending store orders
+            return StoreOrder::where('store_id', Auth::user()->store_id)
+                ->where('status', StoreOrder::STATUS_PENDING)
+                ->count();
+        } elseif (Auth::user()->hasRole(['owner', 'admin_back_office'])) {
+            // For central admin, count pending purchase orders
+            return StoreOrder::where('status', StoreOrder::STATUS_PENDING)->count();
+        } elseif (Auth::user()->hasRole('admin_gudang')) {
+            // For warehouse admin, count forwarded store orders
+            return StoreOrder::where('status', StoreOrder::STATUS_FORWARDED_TO_WAREHOUSE)->count();
+        } else {
+            return 0;
         }
     }
 
@@ -68,14 +162,21 @@ class DashboardController extends Controller
         $data = [];
 
         try {
-            $salesData = Sale::select(
-                DB::raw('DATE(date) as sale_date'),
-                DB::raw('SUM(total_amount) as total_sales')
-            )
-            ->whereDate('date', '>=', Carbon::now()->subDays(7))
-            ->groupBy('sale_date')
-            ->orderBy('sale_date')
-            ->get();
+            $salesData = DB::table('sales')
+                ->select(
+                    DB::raw('DATE(date) as sale_date'),
+                    DB::raw('SUM(total_amount) as total_sales')
+                );
+
+            // Filter for store admin
+            if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id) {
+                $salesData->where('store_id', Auth::user()->store_id);
+            }
+
+            $salesData = $salesData->whereDate('date', '>=', Carbon::now()->subDays(7))
+                ->groupBy('sale_date')
+                ->orderBy('sale_date')
+                ->get();
 
             // Generate array for last 7 days
             for ($i = 6; $i >= 0; $i--) {
@@ -83,10 +184,18 @@ class DashboardController extends Controller
                 $labels[] = Carbon::now()->subDays($i)->format('d/m');
 
                 $sale = $salesData->firstWhere('sale_date', $date);
-                $data[] = $sale ? $sale->total_sales : 0;
+                $data[] = $sale ? (int)$sale->total_sales : 0;
             }
+
+            // Log the data for debugging
+            Log::info('Sales chart data: ', [
+                'labels' => $labels,
+                'data' => $data
+            ]);
         } catch (\Exception $e) {
-            // Jika error, kembalikan data kosong
+            Log::error('Error generating sales chart data: ' . $e->getMessage());
+
+            // Fallback to empty data
             for ($i = 6; $i >= 0; $i--) {
                 $labels[] = Carbon::now()->subDays($i)->format('d/m');
                 $data[] = 0;
@@ -105,24 +214,45 @@ class DashboardController extends Controller
         $data = [];
 
         try {
-            $topProducts = DB::table('sale_details')
+            $query = DB::table('sale_details')
                 ->join('products', 'sale_details.product_id', '=', 'products.id')
-                ->select('products.name', DB::raw('SUM(sale_details.quantity) as total_sold'))
-                ->groupBy('products.name')
+                ->join('sales', 'sale_details.sale_id', '=', 'sales.id')
+                ->select(
+                    'products.name',
+                    DB::raw('SUM(sale_details.quantity) as total_sold')
+                );
+
+            // Filter for store admin
+            if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id) {
+                $query->where('sales.store_id', Auth::user()->store_id);
+            }
+
+            $topProducts = $query->groupBy('products.id', 'products.name')
                 ->orderBy('total_sold', 'desc')
                 ->limit(5)
                 ->get();
 
-            $labels = $topProducts->pluck('name')->toArray();
-            $data = $topProducts->pluck('total_sold')->toArray();
+            foreach ($topProducts as $product) {
+                $labels[] = $product->name;
+                $data[] = (int)$product->total_sold;
+            }
 
-            // Jika tidak ada data, tambahkan placeholder
+            // Ensure we have data
             if (empty($labels)) {
-                $labels = ['No Data'];
+                $labels = ['Tidak ada data'];
                 $data = [0];
             }
+
+            // Log the data for debugging
+            Log::info('Top products data: ', [
+                'labels' => $labels,
+                'data' => $data
+            ]);
         } catch (\Exception $e) {
-            $labels = ['No Data'];
+            Log::error('Error generating top products data: ' . $e->getMessage());
+
+            // Default fallback data
+            $labels = ['Tidak ada data'];
             $data = [0];
         }
 
@@ -135,37 +265,67 @@ class DashboardController extends Controller
     private function getRecentTransactions()
     {
         try {
-            $sales = Sale::select(
+            // Start with sales query
+            $salesQuery = Sale::select(
                 'id',
                 'date',
                 DB::raw("'Sale' as type"),
                 'total_amount as amount',
-                DB::raw("status as status")
-            )
-            ->orderBy('date', 'desc')
-            ->limit(5);
+                DB::raw('status as status')
+            );
 
-            $purchases = DB::table('purchases')
-                ->select(
+            // Filter for store admin
+            if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id) {
+                $salesQuery->where('store_id', Auth::user()->store_id);
+            }
+
+            // Only include purchases if user has permission
+            if (Auth::user()->hasRole(['owner', 'admin_back_office', 'admin_gudang'])) {
+                $purchasesQuery = Purchase::select(
                     'id',
                     'date',
                     DB::raw("'Purchase' as type"),
                     'total_amount as amount',
-                    DB::raw("status as status")
-                )
-                ->orderBy('date', 'desc')
-                ->limit(5)
-                ->union($sales)
-                ->orderBy('date', 'desc')
-                ->limit(10)
-                ->get()
-                ->map(function ($item) {
-                    $item->date = Carbon::parse($item->date);
-                    return $item;
-                });
+                    DB::raw('status as status')
+                );
 
-            return $purchases;
+                // Combine sales and purchases
+                $transactions = $salesQuery->unionAll($purchasesQuery)
+                    ->orderBy('date', 'desc')
+                    ->limit(10)
+                    ->get();
+            } else {
+                // Only sales for store admin
+                $transactions = $salesQuery
+                    ->orderBy('date', 'desc')
+                    ->limit(10)
+                    ->get();
+            }
+
+            return $transactions;
         } catch (\Exception $e) {
+            Log::error('Error getting recent transactions: ' . $e->getMessage());
+            return collect();
+        }
+    }
+
+    private function getRecentStoreOrders()
+    {
+        try {
+            $query = StoreOrder::with('store');
+
+            // Filter for store admin
+            if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id) {
+                $query->where('store_id', Auth::user()->store_id);
+            }
+
+            $recentStoreOrders = $query->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            return $recentStoreOrders;
+        } catch (\Exception $e) {
+            Log::error('Error getting recent store orders: ' . $e->getMessage());
             return collect();
         }
     }
