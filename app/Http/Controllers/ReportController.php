@@ -20,12 +20,14 @@ use App\Exports\FinanceReportExport;
 use App\Exports\ProfitLossReportExport;
 use App\Models\AccountPayable;
 use App\Models\AccountReceivable;
+use App\Models\InitialBalance;
 use App\Exports\SalesByStoreExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
@@ -462,13 +464,47 @@ class ReportController extends Controller
     }
 
     /**
-        * Display finance report.
-        */
+     * Display finance report.
+     */
     public function finance(Request $request)
     {
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
         $storeId = $request->input('store_id');
+
+        // Debug untuk memeriksa parameter tanggal
+        Log::info('Finance report params', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'store_id' => $storeId
+        ]);
+
+        // Mengambil saldo awal terbaru yang tanggalnya <= tanggal mulai laporan
+        $initialBalance = InitialBalance::where('date', '<=', $endDate)
+                            ->orderBy('date', 'desc')
+                            ->first();
+
+        // Debug untuk memeriksa hasil query saldo awal
+        Log::info('Initial balance query result', [
+            'initialBalance' => $initialBalance ? [
+                'id' => $initialBalance->id,
+                'date' => $initialBalance->date,
+                'cash_balance' => $initialBalance->cash_balance,
+                'bank1_balance' => $initialBalance->bank1_balance,
+                'bank2_balance' => $initialBalance->bank2_balance
+            ] : null
+        ]);
+
+        // Default jika tidak ada saldo awal
+        $cashBalance = 0;
+        $bank1Balance = 0;
+        $bank2Balance = 0;
+
+        if ($initialBalance) {
+            $cashBalance = $initialBalance->cash_balance;
+            $bank1Balance = $initialBalance->bank1_balance;
+            $bank2Balance = $initialBalance->bank2_balance;
+        }
 
         // Get sales
         $salesQuery = Sale::whereBetween('date', [$startDate, $endDate]);
@@ -510,6 +546,17 @@ class ReportController extends Controller
             ->orderByDesc('total')
             ->get();
 
+        // Get total payables & receivables for summary cards
+        $totalPayables = AccountPayable::where('status', '!=', 'paid')->sum('amount');
+        $overduePayables = AccountPayable::where('status', '!=', 'paid')
+                        ->where('due_date', '<', now())
+                        ->sum(DB::raw('amount - paid_amount'));
+
+        $totalReceivables = AccountReceivable::where('status', '!=', 'paid')->sum('amount');
+        $overdueReceivables = AccountReceivable::where('status', '!=', 'paid')
+                        ->where('due_date', '<', now())
+                        ->sum(DB::raw('amount - paid_amount'));
+
         // Get all stores for filter
         $stores = Store::where('is_active', true)->orderBy('name')->get();
 
@@ -521,7 +568,17 @@ class ReportController extends Controller
             'netProfit',
             'chart_data',
             'expense_categories',
-            'stores'
+            'stores',
+            'totalPayables',
+            'overduePayables',
+            'totalReceivables',
+            'overdueReceivables',
+            'cashBalance',
+            'bank1Balance',
+            'bank2Balance',
+            'initialBalance',
+            'startDate',  // Tambahkan parameter ini agar tersedia di view
+            'endDate'     // Tambahkan parameter ini agar tersedia di view
         ));
     }
 
@@ -847,10 +904,22 @@ public function payables(Request $request)
 
         // --- AKTIVA (ASSETS) ---
 
-        // Aktiva Lancar (Current Assets)
+        // Ambil saldo awal kas dan bank dari tabel initial_balances
+        $initialBalance = InitialBalance::where('date', '<=', $date)
+                        ->orderBy('date', 'desc')
+                        ->first();
 
         // 1. Kas & Setara Kas
-        $cash = 0; // Implementasi: Ambil dari saldo kas
+        $cash = $initialBalance ? $initialBalance->cash_balance : 0;
+
+        // 1a. Bank 1
+        $bank1 = $initialBalance ? $initialBalance->bank1_balance : 0;
+
+        // 1b. Bank 2
+        $bank2 = $initialBalance ? $initialBalance->bank2_balance : 0;
+
+        // Total kas dan bank
+        $totalCashAndBank = $cash + $bank1 + $bank2;
 
         // 2. Piutang Dagang
         $accountsReceivable = AccountReceivable::where('status', '!=', 'paid')
@@ -863,7 +932,7 @@ public function payables(Request $request)
                     ->sum(DB::raw('stock_warehouses.quantity * products.purchase_price'));
 
         // Total Aktiva Lancar
-        $totalCurrentAssets = $cash + $accountsReceivable + $inventory;
+        $totalCurrentAssets = $totalCashAndBank + $accountsReceivable + $inventory;
 
         // Aktiva Tetap (Fixed Assets)
         // Implementasi: Jika ada data aktiva tetap di sistem
@@ -932,6 +1001,9 @@ public function payables(Request $request)
         return view('reports.balance-sheet', compact(
             'date',
             'cash',
+            'bank1',
+            'bank2',
+            'totalCashAndBank',
             'accountsReceivable',
             'inventory',
             'totalCurrentAssets',
@@ -948,7 +1020,8 @@ public function payables(Request $request)
             'netIncome',
             'totalEquity',
             'totalLiabilitiesAndEquity',
-            'difference'
+            'difference',
+            'initialBalance'
         ));
     }
 

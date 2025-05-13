@@ -4,6 +4,7 @@
 
 @section('content')
 <div class="container-fluid">
+    <!-- Header Section -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-0 text-dark fw-bold">
@@ -11,19 +12,46 @@
             </h1>
             <p class="text-muted">Analisis pendapatan, pengeluaran, dan laba perusahaan</p>
         </div>
-        <div>
-            <a href="{{ route('reports.balance-sheet') }}" class="btn btn-primary me-2">
+        <div class="d-flex flex-wrap">
+            <div class="btn-group me-2 mb-2">
+                <a href="{{ route('finance.balance.create') }}" class="btn btn-primary">
+                    <i class="fas fa-wallet me-1"></i> Input Saldo Awal
+                </a>
+                <a href="{{ route('finance.expense.create') }}" class="btn btn-warning">
+                    <i class="fas fa-money-bill-wave me-1"></i> Input Pengeluaran
+                </a>
+            </div>
+            <a href="{{ route('reports.balance-sheet') }}" class="btn btn-info text-white me-2 mb-2">
                 <i class="fas fa-balance-scale me-1"></i> Laporan Neraca
             </a>
-            <a href="{{ route('reports.finance.export', request()->query()) }}" class="btn btn-success">
+            <a href="{{ route('reports.finance.export', request()->query()) }}" class="btn btn-success mb-2">
                 <i class="fas fa-file-excel me-1"></i> Export Excel
             </a>
         </div>
     </div>
 
+    <!-- Alert Section -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i> {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    <!-- Filter Section -->
     <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 fw-bold text-primary">Filter</h6>
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-filter me-1"></i> Filter Laporan
+            </h6>
+            <span class="small text-muted">Periode: {{ \Carbon\Carbon::parse($startDate ?? now()->startOfMonth())->format('d M Y') }} - {{ \Carbon\Carbon::parse($endDate ?? now())->format('d M Y') }}</span>
         </div>
         <div class="card-body">
             <form action="{{ route('reports.finance') }}" method="GET">
@@ -31,13 +59,13 @@
                     <div class="col-md-4">
                         <div class="form-group mb-3">
                             <label for="start_date" class="form-label">Tanggal Mulai</label>
-                            <input type="date" class="form-select" id="start_date" name="start_date" value="{{ request('start_date', now()->startOfMonth()->format('Y-m-d')) }}">
+                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request('start_date', now()->startOfMonth()->format('Y-m-d')) }}">
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group mb-3">
                             <label for="end_date" class="form-label">Tanggal Akhir</label>
-                            <input type="date" class="form-select" id="end_date" name="end_date" value="{{ request('end_date', now()->format('Y-m-d')) }}">
+                            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request('end_date', now()->format('Y-m-d')) }}">
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -55,8 +83,8 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <button type="submit" class="btn btn-primary">
+                <div class="form-group d-flex">
+                    <button type="submit" class="btn btn-primary me-2">
                         <i class="fas fa-filter me-1"></i> Filter
                     </button>
                     <a href="{{ route('reports.finance') }}" class="btn btn-secondary">
@@ -67,6 +95,83 @@
         </div>
     </div>
 
+    <!-- Saldo Awal Section -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center bg-light">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-wallet me-1"></i> Saldo Kas dan Bank
+            </h6>
+            @if($initialBalance)
+                <span class="badge bg-info text-white">
+                    <i class="fas fa-calendar-alt me-1"></i> Saldo per: {{ $initialBalance->date->format('d M Y') }}
+                </span>
+            @else
+                <span class="badge bg-warning text-dark">
+                    <i class="fas fa-exclamation-triangle me-1"></i> Belum ada data saldo
+                </span>
+            @endif
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card h-100 bg-gradient bg-light mb-3 border-left-primary">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title text-primary">
+                                    <i class="fas fa-money-bill-alt me-1"></i> Saldo Kas
+                                </h5>
+                                <i class="fas fa-coins fa-2x text-primary opacity-25"></i>
+                            </div>
+                            <h3 class="text-primary fw-bold">Rp {{ number_format($cashBalance, 0, ',', '.') }}</h3>
+                            @if($initialBalance)
+                                <small class="text-muted">Saldo per {{ $initialBalance->date->format('d/m/Y') }}</small>
+                            @else
+                                <small class="text-danger">Belum ada data saldo awal</small>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 bg-gradient bg-light mb-3 border-left-info">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title text-info">
+                                    <i class="fas fa-landmark me-1"></i> Bank 1
+                                </h5>
+                                <i class="fas fa-university fa-2x text-info opacity-25"></i>
+                            </div>
+                            <h3 class="text-info fw-bold">Rp {{ number_format($bank1Balance, 0, ',', '.') }}</h3>
+                            @if($initialBalance)
+                                <small class="text-muted">Saldo per {{ $initialBalance->date->format('d/m/Y') }}</small>
+                            @else
+                                <small class="text-danger">Belum ada data saldo awal</small>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 bg-gradient bg-light mb-3 border-left-success">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title text-success">
+                                    <i class="fas fa-landmark me-1"></i> Bank 2
+                                </h5>
+                                <i class="fas fa-university fa-2x text-success opacity-25"></i>
+                            </div>
+                            <h3 class="text-success fw-bold">Rp {{ number_format($bank2Balance, 0, ',', '.') }}</h3>
+                            @if($initialBalance)
+                                <small class="text-muted">Saldo per {{ $initialBalance->date->format('d/m/Y') }}</small>
+                            @else
+                                <small class="text-danger">Belum ada data saldo awal</small>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards Section -->
     <div class="row">
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-primary shadow h-100 py-2">
@@ -137,12 +242,14 @@
         </div>
     </div>
 
-    <!-- Cards for Payables and Receivables reports - BAGIAN BARU -->
-    <div class="row mt-4">
+    <!-- Payables & Receivables Section -->
+    <div class="row mt-2">
         <div class="col-lg-6 mb-4">
             <div class="card shadow h-100">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 fw-bold text-primary">Laporan Hutang ke Pemasok</h6>
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-light">
+                    <h6 class="m-0 fw-bold text-primary">
+                        <i class="fas fa-file-invoice-dollar me-1"></i> Laporan Hutang ke Pemasok
+                    </h6>
                     <a href="{{ route('reports.payables') }}" class="btn btn-sm btn-primary">
                         <i class="fas fa-arrow-right"></i> Lihat Detail
                     </a>
@@ -174,8 +281,10 @@
 
         <div class="col-lg-6 mb-4">
             <div class="card shadow h-100">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 fw-bold text-primary">Laporan Piutang dari Toko</h6>
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-light">
+                    <h6 class="m-0 fw-bold text-primary">
+                        <i class="fas fa-hand-holding-usd me-1"></i> Laporan Piutang dari Toko
+                    </h6>
                     <a href="{{ route('reports.receivables') }}" class="btn btn-sm btn-primary">
                         <i class="fas fa-arrow-right"></i> Lihat Detail
                     </a>
@@ -206,11 +315,14 @@
         </div>
     </div>
 
+    <!-- Charts Section -->
     <div class="row">
         <div class="col-xl-8 col-lg-7">
             <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 fw-bold text-primary">Tren Pendapatan vs Pengeluaran</h6>
+                <div class="card-header py-3 bg-light">
+                    <h6 class="m-0 fw-bold text-primary">
+                        <i class="fas fa-chart-line me-1"></i> Tren Pendapatan vs Pengeluaran
+                    </h6>
                 </div>
                 <div class="card-body">
                     <div class="chart-area">
@@ -222,8 +334,10 @@
 
         <div class="col-xl-4 col-lg-5">
             <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 fw-bold text-primary">Kategori Pengeluaran</h6>
+                <div class="card-header py-3 bg-light">
+                    <h6 class="m-0 fw-bold text-primary">
+                        <i class="fas fa-chart-pie me-1"></i> Kategori Pengeluaran
+                    </h6>
                 </div>
                 <div class="card-body">
                     <div class="chart-pie pt-4 pb-2">
@@ -234,11 +348,14 @@
         </div>
     </div>
 
+    <!-- Financial Summary & Expense Details Section -->
     <div class="row">
         <div class="col-lg-6">
             <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 fw-bold text-primary">Ringkasan Keuangan</h6>
+                <div class="card-header py-3 bg-light">
+                    <h6 class="m-0 fw-bold text-primary">
+                        <i class="fas fa-file-alt me-1"></i> Ringkasan Keuangan
+                    </h6>
                 </div>
                 <div class="card-body">
                     <table class="table table-bordered">
@@ -287,8 +404,13 @@
 
         <div class="col-lg-6">
             <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 fw-bold text-primary">Rincian Pengeluaran</h6>
+                <div class="card-header py-3 d-flex justify-content-between align-items-center bg-light">
+                    <h6 class="m-0 fw-bold text-primary">
+                        <i class="fas fa-list me-1"></i> Rincian Pengeluaran
+                    </h6>
+                    <a href="{{ route('finance.expense.create') }}" class="btn btn-sm btn-warning">
+                        <i class="fas fa-plus me-1"></i> Tambah Pengeluaran
+                    </a>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -305,7 +427,7 @@
                                 <tr>
                                     <td>{{ ucfirst($category->category) }}</td>
                                     <td>Rp {{ number_format($category->total, 0, ',', '.') }}</td>
-                                    <td>{{ $expenses > 0 ? number_format(($category->total / $expenses) * 100, 1) : 0 }}%</td>
+                                    <td>{{ $expenses > 0 ? number_format(($category->total / $expenses) * 100, 1, ',', '.') : 0 }}%</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -384,6 +506,14 @@
             },
             options: {
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 25,
+                        top: 25,
+                        bottom: 0
+                    }
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -395,12 +525,18 @@
                     }
                 },
                 plugins: {
+                    legend: {
+                        position: 'top',
+                    },
                     tooltip: {
-                        backgroundColor: "rgb(255,255,255)",
-                        bodyFontColor: "#858796",
+                        backgroundColor: "rgb(30, 30, 30)",
+                        titleColor: "#ffffff",
+                        bodyColor: "#ffffff",
                         titleMarginBottom: 10,
-                        titleFontColor: '#6e707e',
-                        titleFontSize: 14,
+                        titleFont: {
+                            size: 14,
+                            weight: 'bold'
+                        },
                         borderColor: '#dddfeb',
                         borderWidth: 1,
                         xPadding: 15,
@@ -443,9 +579,24 @@
             options: {
                 maintainAspectRatio: false,
                 plugins: {
+                    legend: {
+                        position: 'bottom',
+                        display: true,
+                        labels: {
+                            boxWidth: 12
+                        }
+                    },
                     tooltip: {
-                        backgroundColor: "rgb(255,255,255)",
-                        bodyFontColor: "#858796",
+                        backgroundColor: "rgb(30, 30, 30)",
+                        titleColor: "#ffffff",
+                        bodyColor: "#ffffff",
+                        titleFont: {
+                            size: 14,
+                            weight: 'bold'
+                        },
+                        bodyFont: {
+                            size: 14
+                        },
                         borderColor: '#dddfeb',
                         borderWidth: 1,
                         xPadding: 15,
@@ -457,10 +608,6 @@
                                 return context.label + ': Rp ' + context.raw.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
                             }
                         }
-                    },
-                    legend: {
-                        display: true,
-                        position: 'bottom'
                     }
                 },
                 cutout: '70%',
@@ -469,12 +616,12 @@
     });
 
     function number_format(number, decimals, dec_point, thousands_sep) {
-        // Format numbers with commas
+        // Format numbers with proper separator for Indonesian format (. for thousands, , for decimal)
         number = (number + '').replace(',', '').replace(' ', '');
         var n = !isFinite(+number) ? 0 : +number,
             prec = !isFinite(+decimals) ? 0 : Math.abs(decimals),
-            sep = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
-            dec = (typeof dec_point === 'undefined') ? '.' : dec_point,
+            sep = (typeof thousands_sep === 'undefined') ? '.' : thousands_sep,
+            dec = (typeof dec_point === 'undefined') ? ',' : dec_point,
             s = '',
             toFixedFix = function(n, prec) {
                 var k = Math.pow(10, prec);

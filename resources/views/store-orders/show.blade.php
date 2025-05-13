@@ -9,7 +9,7 @@
             <h1 class="h3 mb-0 text-dark fw-bold">
                 <i class="fas fa-shopping-basket me-2 text-primary"></i> Detail Pesanan
             </h1>
-            <p class="text-muted">Pesanan {{ $storeOrder->order_number }}</p>
+            <p class="text-muted">Pesanan {{ $storeOrder->order_number ?? 'N/A' }}</p>
         </div>
         <div class="col-auto">
             <a href="{{ route('store-orders.index') }}" class="btn btn-secondary">
@@ -40,11 +40,11 @@
                     <table class="table table-borderless">
                         <tr>
                             <th width="30%">No. Pesanan</th>
-                            <td>{{ $storeOrder->order_number }}</td>
+                            <td>{{ $storeOrder->order_number ?? 'N/A' }}</td>
                         </tr>
                         <tr>
                             <th>Tanggal</th>
-                            <td>{{ $storeOrder->date->format('d/m/Y') }}</td>
+                            <td>{{ $storeOrder->date ? $storeOrder->date->format('d/m/Y') : 'N/A' }}</td>
                         </tr>
                         <tr>
                             <th>Status</th>
@@ -60,13 +60,13 @@
                                 @elseif($storeOrder->status == 'completed')
                                     <span class="badge bg-success">Selesai</span>
                                 @else
-                                    <span class="badge bg-secondary">{{ ucfirst($storeOrder->status) }}</span>
+                                    <span class="badge bg-secondary">{{ ucfirst($storeOrder->status ?? 'Unknown') }}</span>
                                 @endif
                             </td>
                         </tr>
                         <tr>
                             <th>Dibuat Oleh</th>
-                            <td>{{ $storeOrder->createdBy->name }}</td>
+                            <td>{{ $storeOrder->createdBy->name ?? 'N/A' }}</td>
                         </tr>
                         <tr>
                             <th>Catatan</th>
@@ -86,19 +86,19 @@
                     <table class="table table-borderless">
                         <tr>
                             <th width="30%">Nama</th>
-                            <td>{{ $storeOrder->store->name }}</td>
+                            <td>{{ $storeOrder->store->name ?? 'N/A' }}</td>
                         </tr>
                         <tr>
                             <th>Alamat</th>
-                            <td>{{ $storeOrder->store->address }}</td>
+                            <td>{{ $storeOrder->store->address ?? 'N/A' }}</td>
                         </tr>
                         <tr>
                             <th>Telepon</th>
-                            <td>{{ $storeOrder->store->phone }}</td>
+                            <td>{{ $storeOrder->store->phone ?? 'N/A' }}</td>
                         </tr>
                         <tr>
                             <th>Email</th>
-                            <td>{{ $storeOrder->store->email }}</td>
+                            <td>{{ $storeOrder->store->email ?? 'N/A' }}</td>
                         </tr>
                     </table>
                 </div>
@@ -119,7 +119,7 @@
                             <i class="fas fa-file-alt"></i>
                         </div>
                         <div class="timeline-text">Dibuat</div>
-                        <div class="timeline-date">{{ $storeOrder->created_at->format('d/m/Y H:i') }}</div>
+                        <div class="timeline-date">{{ $storeOrder->created_at ? $storeOrder->created_at->format('d/m/Y H:i') : '-' }}</div>
                     </div>
                 </div>
                 <div class="col text-center">
@@ -185,8 +185,8 @@
                         @foreach($storeOrder->storeOrderDetails as $index => $detail)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td>{{ $detail->product->name }}</td>
-                                <td>{{ $detail->unit->name }}</td>
+                                <td>{{ $detail->product->name ?? 'N/A' }}</td>
+                                <td>{{ $detail->unit->name ?? 'N/A' }}</td>
                                 <td>{{ intval($detail->quantity) }}</td>
                                 <td class="text-end">{{ number_format($detail->price, 0, ',', '.') }}</td>
                                 <td class="text-end">{{ number_format($detail->subtotal, 0, ',', '.') }}</td>
@@ -206,7 +206,7 @@
     </div>
 
     <!-- Shipments -->
-    @if($storeOrder->shipments->isNotEmpty())
+    @if($storeOrder->shipments && $storeOrder->shipments->isNotEmpty())
     <div class="card shadow mb-4">
         <div class="card-header py-3">
             <h6 class="m-0 fw-bold text-primary">Pengiriman</h6>
@@ -226,7 +226,7 @@
                         @foreach($storeOrder->shipments as $shipment)
                             <tr>
                                 <td>{{ $shipment->shipment_number }}</td>
-                                <td>{{ $shipment->date->format('d/m/Y') }}</td>
+                                <td>{{ $shipment->date ? $shipment->date->format('d/m/Y') : 'N/A' }}</td>
                                 <td>
                                     @if($shipment->status == 'pending')
                                         <span class="badge bg-warning">Menunggu</span>
@@ -235,7 +235,7 @@
                                     @elseif($shipment->status == 'delivered')
                                         <span class="badge bg-success">Diterima</span>
                                     @else
-                                        <span class="badge bg-secondary">{{ ucfirst($shipment->status) }}</span>
+                                        <span class="badge bg-secondary">{{ ucfirst($shipment->status ?? 'Unknown') }}</span>
                                     @endif
                                 </td>
                                 <td>
@@ -302,11 +302,11 @@
             </div>
         </div>
     </div>
-    </div>
-    @endsection
+</div>
+@endsection
 
-    @section('styles')
-    <style>
+@section('styles')
+<style>
     .timeline {
         position: relative;
         padding: 20px 0;

@@ -58,31 +58,45 @@
                     <h5 class="text-primary fw-bold mb-3">AKTIVA</h5>
 
                     <div class="card mb-3">
-                        <div class="card-header bg-light">
-                            <h6 class="fw-bold mb-0">Aktiva Lancar</h6>
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-sm">
-                                <tr>
-                                    <td>Kas & Setara Kas</td>
-                                    <td class="text-end">Rp {{ number_format($cash, 0, ',', '.') }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Piutang Dagang</td>
-                                    <td class="text-end">Rp {{ number_format($accountsReceivable, 0, ',', '.') }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Persediaan Barang</td>
-                                    <td class="text-end">Rp {{ number_format($inventory, 0, ',', '.') }}</td>
-                                </tr>
-                                <tr class="fw-bold">
-                                    <td>Total Aktiva Lancar</td>
-                                    <td class="text-end">Rp {{ number_format($totalCurrentAssets, 0, ',', '.') }}</td>
-                                </tr>
-                            </table>
-                        </div>
+                    <div class="card-header bg-light">
+                        <h6 class="fw-bold mb-0">Aktiva Lancar</h6>
                     </div>
-
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tr>
+                                <td colspan="2"><strong>Kas & Setara Kas</strong></td>
+                                <td class="text-end"><strong>Rp {{ number_format($totalCashAndBank, 0, ',', '.') }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td width="30px"></td>
+                                <td>Kas</td>
+                                <td class="text-end">Rp {{ number_format($cash, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td>Bank 1</td>
+                                <td class="text-end">Rp {{ number_format($bank1, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td>Bank 2</td>
+                                <td class="text-end">Rp {{ number_format($bank2, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">Piutang Dagang</td>
+                                <td class="text-end">Rp {{ number_format($accountsReceivable, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">Persediaan Barang</td>
+                                <td class="text-end">Rp {{ number_format($inventory, 0, ',', '.') }}</td>
+                            </tr>
+                            <tr class="fw-bold">
+                                <td colspan="2">Total Aktiva Lancar</td>
+                                <td class="text-end">Rp {{ number_format($totalCurrentAssets, 0, ',', '.') }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
                     <div class="card mb-3">
                         <div class="card-header bg-light">
                             <h6 class="fw-bold mb-0">Aktiva Tetap</h6>
