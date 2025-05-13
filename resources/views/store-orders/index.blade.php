@@ -55,6 +55,7 @@
                             <th>Toko</th>
                             <th>Tanggal</th>
                             <th>Status</th>
+                            <th>Pembayaran</th> <!-- Kolom pembayaran yang ditambahkan -->
                             <th>Dibuat Oleh</th>
                             <th>Aksi</th>
                         </tr>
@@ -78,6 +79,19 @@
                                     <span class="badge bg-success bg-opacity-10 text-success">Selesai</span>
                                 @else
                                     <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ ucfirst($order->status) }}</span>
+                                @endif
+                            </td>
+                            <!-- Tambahkan kolom pembayaran -->
+                            <td>
+                                @if($order->payment_type == 'cash')
+                                    <span class="badge bg-success bg-opacity-10 text-success">Tunai</span>
+                                @elseif($order->payment_type == 'credit')
+                                    <span class="badge bg-warning bg-opacity-10 text-warning">Kredit</span>
+                                    @if($order->due_date)
+                                    <small class="d-block text-muted">Jatuh tempo: {{ $order->due_date->format('d/m/Y') }}</small>
+                                    @endif
+                                @else
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ ucfirst($order->payment_type ?? 'N/A') }}</span>
                                 @endif
                             </td>
                             <td>{{ $order->createdBy->name }}</td>
@@ -124,7 +138,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="text-center">Tidak ada pesanan ditemukan.</td>
+                            <td colspan="7" class="text-center">Tidak ada pesanan ditemukan.</td>
                         </tr>
                         @endforelse
                     </tbody>

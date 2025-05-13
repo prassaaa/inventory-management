@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Models\Store;
 use App\Models\Unit;
 use App\Models\StockStore;
-use App\Models\AccountReceivable; // Tambahkan import untuk AccountReceivable
+use App\Models\AccountReceivable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -76,8 +76,8 @@ class BackOfficeStoreOrderController extends Controller
             'unit_id.*' => 'required|exists:units,id',
             'quantity' => 'required|array',
             'quantity.*' => 'required|numeric|min:1',
-            'payment_type' => 'required|in:cash,credit', // Tambahkan validasi metode pembayaran
-            'due_date' => 'required_if:payment_type,credit|nullable|date', // Tambahkan validasi jatuh tempo
+            'payment_type' => 'required|in:cash,credit', // Validasi metode pembayaran
+            'due_date' => 'required_if:payment_type,credit|nullable|date', // Validasi jatuh tempo
         ]);
 
         DB::beginTransaction();
@@ -88,8 +88,8 @@ class BackOfficeStoreOrderController extends Controller
                 'order_number' => 'ORD-' . date('YmdHis'),
                 'date' => now(),
                 'status' => StoreOrder::STATUS_PENDING,
-                'payment_type' => $request->payment_type, // Tambahkan metode pembayaran
-                'due_date' => $request->payment_type === 'credit' ? $request->due_date : null, // Tambahkan jatuh tempo
+                'payment_type' => $request->payment_type, // Simpan metode pembayaran
+                'due_date' => $request->payment_type === 'credit' ? $request->due_date : null, // Simpan jatuh tempo
                 'note' => $request->note,
                 'created_by' => Auth::id(),
                 'updated_by' => Auth::id(),

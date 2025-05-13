@@ -64,6 +64,25 @@
                                 @endif
                             </td>
                         </tr>
+                        <!-- Tambahkan informasi metode pembayaran -->
+                        <tr>
+                            <th>Metode Pembayaran</th>
+                            <td>
+                                @if($storeOrder->payment_type == 'cash')
+                                    <span class="badge bg-success">Tunai</span>
+                                @elseif($storeOrder->payment_type == 'credit')
+                                    <span class="badge bg-warning">Kredit</span>
+                                @else
+                                    <span class="badge bg-secondary">{{ ucfirst($storeOrder->payment_type ?? 'N/A') }}</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @if($storeOrder->payment_type == 'credit')
+                        <tr>
+                            <th>Tanggal Jatuh Tempo</th>
+                            <td>{{ $storeOrder->due_date ? $storeOrder->due_date->format('d/m/Y') : 'N/A' }}</td>
+                        </tr>
+                        @endif
                         <tr>
                             <th>Dibuat Oleh</th>
                             <td>{{ $storeOrder->createdBy->name ?? 'N/A' }}</td>

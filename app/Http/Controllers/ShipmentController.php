@@ -180,7 +180,7 @@ class ShipmentController extends Controller
             ])
             ->findOrFail($id);
 
-        $pdf = PDF::loadView('shipments.document', compact('shipment'));
+        $pdf = PDF::loadView('shipments.document_raw', compact('shipment'));
         return $pdf->stream('surat-jalan-' . $shipment->shipment_number . '.pdf');
     }
 }

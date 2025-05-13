@@ -101,6 +101,25 @@
                     </div>
                 </div>
 
+                <!-- Tambahkan bagian metode pembayaran -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="payment_type" class="form-label">Metode Pembayaran</label>
+                            <select name="payment_type" id="payment_type" class="form-select" required>
+                                <option value="cash">Tunai</option>
+                                <option value="credit">Kredit</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6" id="due_date_container" style="display: none;">
+                        <div class="form-group mb-3">
+                            <label for="due_date" class="form-label">Tanggal Jatuh Tempo</label>
+                            <input type="date" class="form-control" name="due_date" id="due_date" value="{{ old('due_date', date('Y-m-d', strtotime('+30 days'))) }}">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-group mb-4">
                     <label for="note" class="form-label">Catatan</label>
                     <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
@@ -135,6 +154,20 @@
                 theme: 'bootstrap-5'
             });
         }
+
+        // Tampilkan/sembunyikan field jatuh tempo berdasarkan metode pembayaran
+        $('#payment_type').change(function() {
+            if ($(this).val() === 'credit') {
+                $('#due_date_container').show();
+                $('#due_date').prop('required', true);
+            } else {
+                $('#due_date_container').hide();
+                $('#due_date').prop('required', false);
+            }
+        });
+
+        // Trigger perubahan awal untuk menangani kasus load ulang formulir
+        $('#payment_type').trigger('change');
 
         // Tambah baris item baru
         $('#add-item-btn').click(function() {

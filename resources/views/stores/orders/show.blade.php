@@ -64,6 +64,25 @@
                                 @endif
                             </td>
                         </tr>
+                        <!-- Tambahkan informasi metode pembayaran -->
+                        <tr>
+                            <th>Metode Pembayaran</th>
+                            <td>
+                                @if($storeOrder->payment_type == 'cash')
+                                    <span class="badge bg-success">Tunai</span>
+                                @elseif($storeOrder->payment_type == 'credit')
+                                    <span class="badge bg-warning">Kredit</span>
+                                @else
+                                    <span class="badge bg-secondary">{{ ucfirst($storeOrder->payment_type ?? 'N/A') }}</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @if($storeOrder->payment_type == 'credit')
+                        <tr>
+                            <th>Tanggal Jatuh Tempo</th>
+                            <td>{{ $storeOrder->due_date ? $storeOrder->due_date->format('d/m/Y') : 'N/A' }}</td>
+                        </tr>
+                        @endif
                         <tr>
                             <th>Dibuat Oleh</th>
                             <td>{{ $storeOrder->createdBy->name }}</td>
@@ -267,7 +286,7 @@
 
                 <div>
                     @if($storeOrder->status == 'shipped')
-                    <form action="{{ route('store.orders.confirm-delivery', $storeOrder->id) }}" method="POST" class="d-inline">
+                    <form action="{{ route('store.orders.confirm-delivery', $order->id) }}" method="POST" class="d-inline">
                         @csrf
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-check-double me-1"></i> Konfirmasi Penerimaan
@@ -283,6 +302,11 @@
 
 @section('styles')
 <style>
+    .timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+
     .timeline {
         position: relative;
         padding: 20px 0;

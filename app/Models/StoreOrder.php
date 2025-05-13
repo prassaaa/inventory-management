@@ -19,6 +19,9 @@ class StoreOrder extends Model
         'order_number',
         'date',
         'status',
+        'payment_type',
+        'due_date',
+        'total_amount',
         'confirmed_at',
         'forwarded_at',
         'shipped_at',
@@ -31,11 +34,13 @@ class StoreOrder extends Model
 
     protected $casts = [
         'date' => 'datetime',
+        'due_date' => 'datetime',
         'confirmed_at' => 'datetime',
         'forwarded_at' => 'datetime',
         'shipped_at' => 'datetime',
         'delivered_at' => 'datetime',
-        'completed_at' => 'datetime'
+        'completed_at' => 'datetime',
+        'total_amount' => 'decimal:2'
     ];
 
     // Relasi yang sudah ada
@@ -88,6 +93,19 @@ class StoreOrder extends Model
                 return '<span class="badge bg-success">Selesai</span>';
             default:
                 return '<span class="badge bg-secondary">' . ucfirst($this->status) . '</span>';
+        }
+    }
+
+    // Tambahkan getter untuk payment type badge
+    public function getPaymentTypeBadgeAttribute()
+    {
+        switch ($this->payment_type) {
+            case 'cash':
+                return '<span class="badge bg-success bg-opacity-10 text-success">Tunai</span>';
+            case 'credit':
+                return '<span class="badge bg-warning bg-opacity-10 text-warning">Kredit</span>';
+            default:
+                return '<span class="badge bg-secondary bg-opacity-10 text-secondary">' . ucfirst($this->payment_type ?? 'N/A') . '</span>';
         }
     }
 }
