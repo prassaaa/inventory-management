@@ -132,11 +132,17 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/finance/record-payment', [FinanceController::class, 'recordPayment'])->name('finance.record-payment');
         Route::post('/finance/record-receivable-payment', [FinanceController::class, 'recordReceivablePayment'])->name('finance.record-receivable-payment');
 
-        // Finance Balance & Expense Management - pindahkan routes ini ke sini
+        // Finance Balance & Expense Management
         Route::get('/finance/balance/create', [FinanceBalanceController::class, 'create'])->name('finance.balance.create');
         Route::post('/finance/balance/store', [FinanceBalanceController::class, 'store'])->name('finance.balance.store');
         Route::get('/finance/expense/create', [FinanceBalanceController::class, 'createExpense'])->name('finance.expense.create');
         Route::post('/finance/expense/store', [FinanceBalanceController::class, 'storeExpense'])->name('finance.expense.store');
+        // Finance Balance & Expense Management
+        Route::get('/finance/categories/balance', [FinanceBalanceController::class, 'manageBalanceCategories'])->name('finance.categories.balance');
+        Route::post('/finance/categories/balance/store', [FinanceBalanceController::class, 'storeBalanceCategory'])->name('finance.categories.balance.store');
+
+        Route::get('/finance/categories/expense', [FinanceBalanceController::class, 'manageExpenseCategories'])->name('finance.categories.expense');
+        Route::post('/finance/categories/expense/store', [FinanceBalanceController::class, 'storeExpenseCategory'])->name('finance.categories.expense.store');
     });
 
     // Sales (POS)

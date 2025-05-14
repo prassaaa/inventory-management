@@ -13,14 +13,6 @@
             <p class="text-muted">Analisis pendapatan, pengeluaran, dan laba perusahaan</p>
         </div>
         <div class="d-flex flex-wrap">
-            <div class="btn-group me-2 mb-2">
-                <a href="{{ route('finance.balance.create') }}" class="btn btn-primary">
-                    <i class="fas fa-wallet me-1"></i> Input Saldo Awal
-                </a>
-                <a href="{{ route('finance.expense.create') }}" class="btn btn-warning">
-                    <i class="fas fa-money-bill-wave me-1"></i> Input Pengeluaran
-                </a>
-            </div>
             <a href="{{ route('reports.balance-sheet') }}" class="btn btn-info text-white me-2 mb-2">
                 <i class="fas fa-balance-scale me-1"></i> Laporan Neraca
             </a>
@@ -101,72 +93,44 @@
             <h6 class="m-0 fw-bold text-primary">
                 <i class="fas fa-wallet me-1"></i> Saldo Kas dan Bank
             </h6>
-            @if($initialBalance)
-                <span class="badge bg-info text-white">
-                    <i class="fas fa-calendar-alt me-1"></i> Saldo per: {{ $initialBalance->date->format('d M Y') }}
-                </span>
-            @else
-                <span class="badge bg-warning text-dark">
-                    <i class="fas fa-exclamation-triangle me-1"></i> Belum ada data saldo
-                </span>
-            @endif
+            <div>
+                <a href="{{ route('finance.balance.create') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus me-1"></i> Input Saldo Baru
+                </a>
+            </div>
         </div>
         <div class="card-body">
             <div class="row">
-                <div class="col-md-4">
-                    <div class="card h-100 bg-gradient bg-light mb-3 border-left-primary">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="card-title text-primary">
-                                    <i class="fas fa-money-bill-alt me-1"></i> Saldo Kas
-                                </h5>
-                                <i class="fas fa-coins fa-2x text-primary opacity-25"></i>
+                @forelse($balances as $balance)
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 bg-gradient bg-light border-left-primary">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title text-primary">
+                                        <i class="fas fa-{{ $balance->category->type == 'asset' ? 'money-bill-alt' : ($balance->category->type == 'liability' ? 'hand-holding-usd' : 'chart-pie') }} me-1"></i>
+                                        {{ $balance->category->name }}
+                                    </h5>
+                                    <i class="fas fa-{{ $balance->category->type == 'asset' ? 'coins' : ($balance->category->type == 'liability' ? 'file-invoice-dollar' : 'balance-scale') }} fa-2x text-primary opacity-25"></i>
+                                </div>
+                                <h3 class="text-primary fw-bold">Rp {{ number_format($balance->amount, 0, ',', '.') }}</h3>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">Update: {{ $balance->date->format('d/m/Y') }}</small>
+                                    @if($balance->store)
+                                        <span class="badge bg-info">{{ $balance->store->name }}</span>
+                                    @else
+                                        <span class="badge bg-secondary">Global</span>
+                                    @endif
+                                </div>
                             </div>
-                            <h3 class="text-primary fw-bold">Rp {{ number_format($cashBalance, 0, ',', '.') }}</h3>
-                            @if($initialBalance)
-                                <small class="text-muted">Saldo per {{ $initialBalance->date->format('d/m/Y') }}</small>
-                            @else
-                                <small class="text-danger">Belum ada data saldo awal</small>
-                            @endif
                         </div>
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card h-100 bg-gradient bg-light mb-3 border-left-info">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="card-title text-info">
-                                    <i class="fas fa-landmark me-1"></i> Bank 1
-                                </h5>
-                                <i class="fas fa-university fa-2x text-info opacity-25"></i>
-                            </div>
-                            <h3 class="text-info fw-bold">Rp {{ number_format($bank1Balance, 0, ',', '.') }}</h3>
-                            @if($initialBalance)
-                                <small class="text-muted">Saldo per {{ $initialBalance->date->format('d/m/Y') }}</small>
-                            @else
-                                <small class="text-danger">Belum ada data saldo awal</small>
-                            @endif
+                @empty
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i> Belum ada data saldo. Silakan tambahkan saldo awal.
                         </div>
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card h-100 bg-gradient bg-light mb-3 border-left-success">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="card-title text-success">
-                                    <i class="fas fa-landmark me-1"></i> Bank 2
-                                </h5>
-                                <i class="fas fa-university fa-2x text-success opacity-25"></i>
-                            </div>
-                            <h3 class="text-success fw-bold">Rp {{ number_format($bank2Balance, 0, ',', '.') }}</h3>
-                            @if($initialBalance)
-                                <small class="text-muted">Saldo per {{ $initialBalance->date->format('d/m/Y') }}</small>
-                            @else
-                                <small class="text-danger">Belum ada data saldo awal</small>
-                            @endif
-                        </div>
-                    </div>
-                </div>
+                @endforelse
             </div>
         </div>
     </div>
@@ -425,9 +389,9 @@
                             <tbody>
                                 @foreach($expense_categories as $category)
                                 <tr>
-                                    <td>{{ ucfirst($category->category) }}</td>
-                                    <td>Rp {{ number_format($category->total, 0, ',', '.') }}</td>
-                                    <td>{{ $expenses > 0 ? number_format(($category->total / $expenses) * 100, 1, ',', '.') : 0 }}%</td>
+                                    <td>{{ $category['category'] }}</td>
+                                    <td>Rp {{ number_format($category['total'], 0, ',', '.') }}</td>
+                                    <td>{{ $expenses > 0 ? number_format(($category['total'] / $expenses) * 100, 1, ',', '.') : 0 }}%</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -562,13 +526,13 @@
             data: {
                 labels: [
                     @foreach($expense_categories as $category)
-                        "{{ ucfirst($category->category) }}",
+                        "{{ ucfirst($category['category']) }}",
                     @endforeach
                 ],
                 datasets: [{
                     data: [
                         @foreach($expense_categories as $category)
-                            {{ $category->total }},
+                            {{ $category['total'] }},
                         @endforeach
                     ],
                     backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#5a5c69', '#6610f2', '#fd7e14', '#20c9a6', '#858796'],

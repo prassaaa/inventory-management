@@ -16,6 +16,12 @@
         </a>
     </div>
 
+    @if(session('error'))
+        <div class="alert alert-danger">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <div class="card shadow mb-4">
         <div class="card-header py-3">
             <h6 class="m-0 fw-bold text-primary">Form Pengeluaran</h6>
@@ -32,14 +38,16 @@
                         @enderror
                     </div>
                     <div class="col-md-4">
-                        <label for="category" class="form-label">Kategori</label>
-                        <input type="text" class="form-control @error('category') is-invalid @enderror" id="category" name="category" value="{{ old('category') }}" list="category-list" required>
-                        <datalist id="category-list">
+                        <label for="category_id" class="form-label">Kategori</label>
+                        <select class="form-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
+                            <option value="">-- Pilih Kategori --</option>
                             @foreach($categories as $category)
-                                <option value="{{ $category }}">
+                                <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
+                                    {{ $category->name }}
+                                </option>
                             @endforeach
-                        </datalist>
-                        @error('category')
+                        </select>
+                        @error('category_id')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
@@ -57,15 +65,26 @@
 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <label for="store_id" class="form-label">Toko/Cabang (Opsional)</label>
-                        <select class="form-select @error('store_id') is-invalid @enderror" id="store_id" name="store_id">
+                        <label for="store_id" class="form-label">
+                            Toko/Cabang
+                            @if($userStoreId)
+                                <span class="badge bg-info">Terdeteksi Otomatis</span>
+                            @else
+                                <span class="badge bg-warning">Pilih Manual</span>
+                            @endif
+                        </label>
+                        <select class="form-select @error('store_id') is-invalid @enderror" id="store_id" name="store_id" {{ $userStoreId ? 'disabled' : '' }}>
                             <option value="">-- Pilih Toko --</option>
-                            @foreach(\App\Models\Store::where('is_active', true)->orderBy('name')->get() as $store)
-                                <option value="{{ $store->id }}" {{ old('store_id') == $store->id ? 'selected' : '' }}>
+                            @foreach($stores as $store)
+                                <option value="{{ $store->id }}" {{ old('store_id', $userStoreId) == $store->id ? 'selected' : '' }}>
                                     {{ $store->name }}
                                 </option>
                             @endforeach
                         </select>
+                        @if($userStoreId)
+                            <input type="hidden" name="store_id" value="{{ $userStoreId }}">
+                            <small class="text-muted">Anda login sebagai pengguna cabang {{ $stores->where('id', $userStoreId)->first()->name ?? '' }}</small>
+                        @endif
                         @error('store_id')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror

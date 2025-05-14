@@ -10,13 +10,28 @@ class InitialBalance extends Model
     use HasFactory;
 
     protected $fillable = [
-        'date', 'cash_balance', 'bank1_balance', 'bank2_balance',
-        'notes', 'created_by', 'updated_by'
+        'date',
+        'category_id', // Kategori saldo
+        'amount', // Jumlah saldo
+        'notes',
+        'store_id', // null untuk global, store_id untuk saldo toko tertentu
+        'created_by',
+        'updated_by'
     ];
 
     protected $casts = [
         'date' => 'date',
     ];
+
+    public function category()
+    {
+        return $this->belongsTo(BalanceCategory::class, 'category_id');
+    }
+
+    public function store()
+    {
+        return $this->belongsTo(Store::class);
+    }
 
     public function creator()
     {

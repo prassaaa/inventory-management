@@ -9,11 +9,24 @@ class Expense extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['store_id', 'date', 'category', 'amount', 'description', 'created_by', 'updated_by'];
-    
+    protected $fillable = [
+        'date',
+        'amount',
+        'description',
+        'category_id', // Gunakan id dari tabel expense_categories
+        'store_id',
+        'created_by',
+        'updated_by'
+    ];
+
     protected $casts = [
         'date' => 'date',
     ];
+
+    public function category()
+    {
+        return $this->belongsTo(ExpenseCategory::class, 'category_id');
+    }
 
     public function store()
     {

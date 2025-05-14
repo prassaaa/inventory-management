@@ -9,7 +9,7 @@
             <h1 class="h3 mb-0 text-dark fw-bold">
                 <i class="fas fa-wallet me-2 text-primary"></i> Input Saldo Awal
             </h1>
-            <p class="text-muted">Masukkan saldo awal kas dan bank</p>
+            <p class="text-muted">Masukkan saldo awal untuk berbagai kategori</p>
         </div>
         <a href="{{ route('reports.finance') }}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i> Kembali
@@ -37,35 +37,54 @@
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
+                    <div class="col-md-4">
+                        <label for="category_id" class="form-label">Kategori Saldo</label>
+                        <select class="form-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
+                            <option value="">-- Pilih Kategori Saldo --</option>
+                            @foreach($categories as $category)
+                                <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
+                                    {{ $category->name }} ({{ ucfirst($category->type) }})
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('category_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label for="store_id" class="form-label">
+                            Toko/Cabang
+                            @if($userStoreId)
+                                <span class="badge bg-info">Terdeteksi Otomatis</span>
+                            @else
+                                <span class="badge bg-warning">Pilih Manual</span>
+                            @endif
+                        </label>
+                        <select class="form-select @error('store_id') is-invalid @enderror" id="store_id" name="store_id" {{ $userStoreId ? 'disabled' : '' }}>
+                            <option value="">-- Saldo Global --</option>
+                            @foreach($stores as $store)
+                                <option value="{{ $store->id }}" {{ old('store_id', $userStoreId) == $store->id ? 'selected' : '' }}>
+                                    {{ $store->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @if($userStoreId)
+                            <input type="hidden" name="store_id" value="{{ $userStoreId }}">
+                            <small class="text-muted">Anda login sebagai pengguna cabang {{ $stores->where('id', $userStoreId)->first()->name ?? '' }}</small>
+                        @endif
+                        @error('store_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
                 </div>
 
                 <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label for="cash_balance" class="form-label">Saldo Kas</label>
+                    <div class="col-md-6">
+                        <label for="amount" class="form-label">Jumlah Saldo</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control currency-input @error('cash_balance') is-invalid @enderror" id="cash_balance" name="cash_balance" value="{{ old('cash_balance', $latestBalance ? number_format($latestBalance->cash_balance, 0, ',', '.') : 0) }}" required>
-                            @error('cash_balance')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="bank1_balance" class="form-label">Saldo Bank 1</label>
-                        <div class="input-group">
-                            <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control currency-input @error('bank1_balance') is-invalid @enderror" id="bank1_balance" name="bank1_balance" value="{{ old('bank1_balance', $latestBalance ? number_format($latestBalance->bank1_balance, 0, ',', '.') : 0) }}" required>
-                            @error('bank1_balance')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="bank2_balance" class="form-label">Saldo Bank 2</label>
-                        <div class="input-group">
-                            <span class="input-group-text">Rp</span>
-                            <input type="text" class="form-control currency-input @error('bank2_balance') is-invalid @enderror" id="bank2_balance" name="bank2_balance" value="{{ old('bank2_balance', $latestBalance ? number_format($latestBalance->bank2_balance, 0, ',', '.') : 0) }}" required>
-                            @error('bank2_balance')
+                            <input type="text" class="form-control currency-input @error('amount') is-invalid @enderror" id="amount" name="amount" value="{{ old('amount', 0) }}" required>
+                            @error('amount')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
@@ -88,12 +107,75 @@
             </form>
         </div>
     </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 fw-bold text-primary">Saldo Awal Terbaru</h6>
+        </div>
+        <div class="card-body">
+            @if($latestBalances->count() > 0)
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Kategori</th>
+                                <th>Tipe</th>
+                                <th>Tanggal Input</th>
+                                <th class="text-end">Jumlah</th>
+                                <th>Cabang</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($latestBalances as $balance)
+                                <tr>
+                                    <td>{{ $balance->category->name }}</td>
+                                    <td>{{ ucfirst($balance->category->type) }}</td>
+                                    <td>{{ $balance->date->format('d/m/Y') }}</td>
+                                    <td class="text-end">Rp {{ number_format($balance->amount, 0, ',', '.') }}</td>
+                                    <td>
+                                        @if($balance->store)
+                                            <span class="badge bg-info">{{ $balance->store->name }}</span>
+                                        @else
+                                            <span class="badge bg-secondary">Global</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <div class="alert alert-info">
+                    Belum ada data saldo awal. Silakan tambahkan data saldo awal baru.
+                </div>
+            @endif
+        </div>
+    </div>
 </div>
 @endsection
 
 @section('scripts')
 <script>
     $(document).ready(function() {
+        // Auto-fill nilai saldo terakhir
+        $('#category_id').on('change', function() {
+            var categoryId = $(this).val();
+            var storeId = $('#store_id').val() || '{{ $userStoreId }}';
+
+            // Reset nilai amount dahulu
+            $('#amount').val('0');
+
+            // Ambil saldo terakhir untuk kategori ini
+            @foreach($latestBalances as $balance)
+                if (categoryId == "{{ $balance->category_id }}" &&
+                   (storeId == "{{ $balance->store_id }}" || (!storeId && !{{ $balance->store_id ? 'true' : 'false' }}))) {
+                    $('#amount').val("{{ number_format($balance->amount, 0, ',', '.') }}");
+                }
+            @endforeach
+
+            formatCurrency($('#amount'));
+        });
+
         // Format input sebagai mata uang Indonesia saat halaman dimuat
         $('.currency-input').each(function() {
             formatCurrency($(this));

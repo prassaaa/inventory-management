@@ -13,6 +13,8 @@ use App\Models\Supplier;
 use App\Models\StockWarehouse;
 use App\Models\StockStore;
 use App\Models\Expense;
+use App\Models\BalanceCategory;
+use App\Models\ExpenseCategory;
 use App\Exports\SalesReportExport;
 use App\Exports\PurchasesReportExport;
 use App\Exports\InventoryReportExport;
@@ -479,32 +481,26 @@ class ReportController extends Controller
             'store_id' => $storeId
         ]);
 
-        // Mengambil saldo awal terbaru yang tanggalnya <= tanggal mulai laporan
-        $initialBalance = InitialBalance::where('date', '<=', $endDate)
-                            ->orderBy('date', 'desc')
-                            ->first();
+        // Mengambil semua saldo awal yang tanggalnya <= tanggal mulai laporan
+        $query = InitialBalance::with('category')
+            ->where('date', '<=', $endDate);
 
-        // Debug untuk memeriksa hasil query saldo awal
-        Log::info('Initial balance query result', [
-            'initialBalance' => $initialBalance ? [
-                'id' => $initialBalance->id,
-                'date' => $initialBalance->date,
-                'cash_balance' => $initialBalance->cash_balance,
-                'bank1_balance' => $initialBalance->bank1_balance,
-                'bank2_balance' => $initialBalance->bank2_balance
-            ] : null
-        ]);
-
-        // Default jika tidak ada saldo awal
-        $cashBalance = 0;
-        $bank1Balance = 0;
-        $bank2Balance = 0;
-
-        if ($initialBalance) {
-            $cashBalance = $initialBalance->cash_balance;
-            $bank1Balance = $initialBalance->bank1_balance;
-            $bank2Balance = $initialBalance->bank2_balance;
+        if ($storeId) {
+            $query->where(function($q) use ($storeId) {
+                $q->where('store_id', $storeId)
+                ->orWhereNull('store_id'); // Juga ambil saldo global
+            });
         }
+
+        $initialBalances = $query->orderBy('date', 'desc')->get();
+
+        // Kelompokkan saldo berdasarkan kategori, ambil tanggal terbaru untuk setiap kategori
+        $balances = collect();
+        $initialBalances->groupBy('category_id')->each(function($items, $categoryId) use ($balances) {
+            // Ambil item dengan tanggal terbaru untuk kategori ini
+            $latestItem = $items->sortByDesc('date')->first();
+            $balances->push($latestItem);
+        });
 
         // Get sales
         $salesQuery = Sale::whereBetween('date', [$startDate, $endDate]);
@@ -518,12 +514,14 @@ class ReportController extends Controller
             ->where('status', '!=', 'pending');
         $purchases = $purchasesQuery->sum('total_amount');
 
-        // Get expenses
-        $expensesQuery = Expense::whereBetween('date', [$startDate, $endDate]);
+        // Get expenses - ubah untuk menggunakan relasi category
+        $expensesQuery = Expense::with('category')
+            ->whereBetween('date', [$startDate, $endDate]);
         if ($storeId) {
             $expensesQuery->where('store_id', $storeId);
         }
-        $expenses = $expensesQuery->sum('amount');
+        $expenseItems = $expensesQuery->get();
+        $expenses = $expenseItems->sum('amount');
 
         // Calculate gross profit
         $grossProfit = $sales - $purchases;
@@ -534,17 +532,19 @@ class ReportController extends Controller
         // Get income and expense chart data
         $chart_data = $this->getFinanceChartData($startDate, $endDate, $storeId);
 
-        // Get expense breakdown
-        $expense_categories = Expense::select('category', DB::raw('SUM(amount) as total'))
-            ->whereBetween('date', [$startDate, $endDate]);
-
-        if ($storeId) {
-            $expense_categories->where('store_id', $storeId);
-        }
-
-        $expense_categories = $expense_categories->groupBy('category')
-            ->orderByDesc('total')
-            ->get();
+        // Get expense breakdown - ubah untuk menggunakan kategori dari tabel ExpenseCategory
+        $expense_categories = $expenseItems
+            ->groupBy(function($expense) {
+                return $expense->category ? $expense->category->name : 'Lainnya';
+            })
+            ->map(function($items, $categoryName) {
+                return [
+                    'category' => $categoryName,
+                    'total' => $items->sum('amount')
+                ];
+            })
+            ->sortByDesc('total')
+            ->values();
 
         // Get total payables & receivables for summary cards
         $totalPayables = AccountPayable::where('status', '!=', 'paid')->sum('amount');
@@ -560,6 +560,9 @@ class ReportController extends Controller
         // Get all stores for filter
         $stores = Store::where('is_active', true)->orderBy('name')->get();
 
+        // Ambil semua kategori saldo
+        $balanceCategories = BalanceCategory::where('is_active', true)->get();
+
         return view('reports.finance', compact(
             'sales',
             'purchases',
@@ -573,10 +576,8 @@ class ReportController extends Controller
             'overduePayables',
             'totalReceivables',
             'overdueReceivables',
-            'cashBalance',
-            'bank1Balance',
-            'bank2Balance',
-            'initialBalance',
+            'balances',
+            'balanceCategories',
             'startDate',  // Tambahkan parameter ini agar tersedia di view
             'endDate'     // Tambahkan parameter ini agar tersedia di view
         ));
