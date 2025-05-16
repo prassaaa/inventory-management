@@ -757,14 +757,15 @@ class ReportController extends Controller
         $netProfit = $grossProfit - $expenses;
 
         // Get expense breakdown
-        $expenseBreakdown = Expense::select('category', DB::raw('SUM(amount) as total'))
-            ->whereBetween('date', [$startDate, $endDate]);
+        $expenseBreakdown = Expense::select('expense_categories.name as category', DB::raw('SUM(expenses.amount) as total'))
+            ->join('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
+            ->whereBetween('expenses.date', [$startDate, $endDate]);
 
         if ($storeId) {
-            $expenseBreakdown->where('store_id', $storeId);
+            $expenseBreakdown->where('expenses.store_id', $storeId);
         }
 
-        $expenseBreakdown = $expenseBreakdown->groupBy('category')
+        $expenseBreakdown = $expenseBreakdown->groupBy('expense_categories.name')
             ->orderByDesc('total')
             ->get();
 
