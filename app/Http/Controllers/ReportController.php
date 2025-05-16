@@ -717,13 +717,19 @@ class ReportController extends Controller
     }
 
     /**
-        * Display profit and loss report.
-        */
+     * Display profit and loss report.
+     */
     public function profitLoss(Request $request)
     {
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
-        $storeId = $request->input('store_id');
+
+        // Cek user yang login apakah terkait dengan toko tertentu
+        $user = Auth::user();
+        $userStoreId = $user->store_id ?? null;
+
+        // Gunakan store_id user jika ada, atau ambil dari request
+        $storeId = $userStoreId ? $userStoreId : $request->input('store_id');
 
         // Income section
         // Get total sales
@@ -745,18 +751,6 @@ class ReportController extends Controller
         ->sum(DB::raw('sale_details.quantity * products.purchase_price'));
 
         // Get expenses
-        $expensesQuery = Expense::whereBetween('date', [$startDate, $endDate]);
-        if ($storeId) {
-            $expensesQuery->where('store_id', $storeId);
-        }
-
-        $expenses = $expensesQuery->sum('amount');
-
-        // Calculate gross profit and net profit
-        $grossProfit = $totalSales - $cogs;
-        $netProfit = $grossProfit - $expenses;
-
-        // Get expense breakdown
         $expenseBreakdown = Expense::select('expense_categories.name as category', DB::raw('SUM(expenses.amount) as total'))
             ->join('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
             ->whereBetween('expenses.date', [$startDate, $endDate]);
@@ -769,8 +763,24 @@ class ReportController extends Controller
             ->orderByDesc('total')
             ->get();
 
-        // Get all stores for filter
-        $stores = Store::where('is_active', true)->orderBy('name')->get();
+        // Total expenses
+        $expenses = $expenseBreakdown->sum('total');
+
+        // Calculate gross profit and net profit
+        $grossProfit = $totalSales - $cogs;
+        $netProfit = $grossProfit - $expenses;
+
+        // Get all stores for filter (hanya jika user tidak terkait toko tertentu)
+        $stores = $userStoreId ? collect([Store::find($userStoreId)]) : Store::where('is_active', true)->orderBy('name')->get();
+
+        // Variabel untuk menentukan apakah tampilkan filter toko atau tidak
+        $canSelectStore = !$userStoreId;
+
+        // Tambahkan store name jika filter by store
+        $selectedStore = null;
+        if ($storeId) {
+            $selectedStore = Store::find($storeId);
+        }
 
         return view('reports.profit-loss', compact(
             'totalSales',
@@ -779,7 +789,10 @@ class ReportController extends Controller
             'expenses',
             'netProfit',
             'expenseBreakdown',
-            'stores'
+            'stores',
+            'canSelectStore',
+            'userStoreId',
+            'selectedStore'
         ));
     }
 
