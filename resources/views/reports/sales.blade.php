@@ -242,16 +242,39 @@
                         @foreach($top_products as $product)
                         <tr>
                             <td>
-                                <a href="{{ route('products.show', $product->product) }}">
-                                    <span class="fw-medium">{{ $product->product->code }}</span> - {{ $product->product->name }}
-                                </a>
+                                @if($product->product)
+                                    @if($product->product->deleted_at)
+                                        <span class="fw-medium">{{ $product->product->code }}</span> -
+                                        {{ $product->product->name }}
+                                        <span class="badge bg-danger text-white">terhapus</span>
+                                    @else
+                                        <a href="{{ route('products.show', ['product' => $product->product->id]) }}">
+                                            <span class="fw-medium">{{ $product->product->code }}</span> - {{ $product->product->name }}
+                                        </a>
+                                    @endif
+                                @else
+                                    <span class="text-muted">Produk tidak tersedia</span>
+                                @endif
                             </td>
                             <td>
-                                <span class="badge bg-primary-light text-primary rounded-pill px-2">
-                                    {{ $product->product->category->name }}
-                                </span>
+                                @if($product->product && $product->product->category)
+                                    <span class="badge bg-primary-light text-primary rounded-pill px-2">
+                                        {{ $product->product->category->name }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-secondary rounded-pill px-2">
+                                        Tidak Terkategori
+                                    </span>
+                                @endif
                             </td>
-                            <td>{{ intval($product->total_quantity) }} {{ $product->product->baseUnit->name }}</td>
+                            <td>
+                                {{ intval($product->total_quantity) }}
+                                @if($product->product && isset($product->product->baseUnit) && $product->product->baseUnit)
+                                    {{ $product->product->baseUnit->name }}
+                                @else
+                                    unit
+                                @endif
+                            </td>
                             <td>Rp {{ number_format($product->total_amount, 0, ',', '.') }}</td>
                         </tr>
                         @endforeach

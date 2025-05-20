@@ -168,7 +168,9 @@ class ReportController extends Controller
         */
     private function getTopSellingProducts($startDate, $endDate, $storeId = null)
     {
-        $query = SaleDetail::with(['product.category', 'product.baseUnit'])
+        $query = SaleDetail::with(['product' => function($q) {
+                $q->withTrashed(); // Tambahkan withTrashed disini untuk mengambil produk yang sudah dihapus
+            }, 'product.category', 'product.baseUnit'])
             ->select(
                 'product_id',
                 DB::raw('SUM(quantity) as total_quantity'),
@@ -328,7 +330,9 @@ class ReportController extends Controller
         */
     private function getTopPurchasedProducts($startDate, $endDate, $supplierId = null)
     {
-        $query = PurchaseDetail::with(['product.category', 'product.baseUnit'])
+        $query = PurchaseDetail::with(['product' => function($q) {
+                $q->withTrashed(); // Tambahkan withTrashed disini untuk mengambil produk yang sudah dihapus
+            }, 'product.category', 'product.baseUnit'])
             ->select(
                 'product_id',
                 DB::raw('SUM(quantity) as total_quantity'),
@@ -717,13 +721,19 @@ class ReportController extends Controller
     }
 
     /**
-        * Display profit and loss report.
-        */
+     * Display profit and loss report.
+     */
     public function profitLoss(Request $request)
     {
         $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
-        $storeId = $request->input('store_id');
+
+        // Cek user yang login apakah terkait dengan toko tertentu
+        $user = Auth::user();
+        $userStoreId = $user->store_id ?? null;
+
+        // Gunakan store_id user jika ada, atau ambil dari request
+        $storeId = $userStoreId ? $userStoreId : $request->input('store_id');
 
         // Income section
         // Get total sales
@@ -745,31 +755,36 @@ class ReportController extends Controller
         ->sum(DB::raw('sale_details.quantity * products.purchase_price'));
 
         // Get expenses
-        $expensesQuery = Expense::whereBetween('date', [$startDate, $endDate]);
+        $expenseBreakdown = Expense::select('expense_categories.name as category', DB::raw('SUM(expenses.amount) as total'))
+            ->join('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
+            ->whereBetween('expenses.date', [$startDate, $endDate]);
+
         if ($storeId) {
-            $expensesQuery->where('store_id', $storeId);
+            $expenseBreakdown->where('expenses.store_id', $storeId);
         }
 
-        $expenses = $expensesQuery->sum('amount');
+        $expenseBreakdown = $expenseBreakdown->groupBy('expense_categories.name')
+            ->orderByDesc('total')
+            ->get();
+
+        // Total expenses
+        $expenses = $expenseBreakdown->sum('total');
 
         // Calculate gross profit and net profit
         $grossProfit = $totalSales - $cogs;
         $netProfit = $grossProfit - $expenses;
 
-        // Get expense breakdown
-        $expenseBreakdown = Expense::select('category', DB::raw('SUM(amount) as total'))
-            ->whereBetween('date', [$startDate, $endDate]);
+        // Get all stores for filter (hanya jika user tidak terkait toko tertentu)
+        $stores = $userStoreId ? collect([Store::find($userStoreId)]) : Store::where('is_active', true)->orderBy('name')->get();
 
+        // Variabel untuk menentukan apakah tampilkan filter toko atau tidak
+        $canSelectStore = !$userStoreId;
+
+        // Tambahkan store name jika filter by store
+        $selectedStore = null;
         if ($storeId) {
-            $expenseBreakdown->where('store_id', $storeId);
+            $selectedStore = Store::find($storeId);
         }
-
-        $expenseBreakdown = $expenseBreakdown->groupBy('category')
-            ->orderByDesc('total')
-            ->get();
-
-        // Get all stores for filter
-        $stores = Store::where('is_active', true)->orderBy('name')->get();
 
         return view('reports.profit-loss', compact(
             'totalSales',
@@ -778,7 +793,10 @@ class ReportController extends Controller
             'expenses',
             'netProfit',
             'expenseBreakdown',
-            'stores'
+            'stores',
+            'canSelectStore',
+            'userStoreId',
+            'selectedStore'
         ));
     }
 
@@ -903,92 +921,278 @@ public function payables(Request $request)
     {
         $date = $request->input('date', now()->format('Y-m-d'));
 
+        // Log untuk debugging
+        Log::info('Generating Balance Sheet', ['date' => $date]);
+
         // --- AKTIVA (ASSETS) ---
 
-        // Ambil saldo awal kas dan bank dari tabel initial_balances
-        $initialBalance = InitialBalance::where('date', '<=', $date)
-                        ->orderBy('date', 'desc')
-                        ->first();
-
         // 1. Kas & Setara Kas
-        $cash = $initialBalance ? $initialBalance->cash_balance : 0;
+        // a. Ambil semua kategori saldo jenis asset
+        $assetCategories = BalanceCategory::where('type', 'asset')->get();
+        Log::info('Asset Categories', ['categories' => $assetCategories->pluck('name')]);
 
-        // 1a. Bank 1
-        $bank1 = $initialBalance ? $initialBalance->bank1_balance : 0;
+        // b. Inisialisasi nilai default
+        $cash = 0;
+        $bank1 = 0; // Bank umum atau Bank BCA
+        $bank2 = 0; // Bank Mandiri
 
-        // 1b. Bank 2
-        $bank2 = $initialBalance ? $initialBalance->bank2_balance : 0;
+        // c. Ambil saldo awal untuk setiap kategori
+        foreach ($assetCategories as $category) {
+            $balance = InitialBalance::where('category_id', $category->id)
+                ->where('date', '<=', $date)
+                ->orderBy('date', 'desc')
+                ->first();
+
+            if ($balance) {
+                Log::info('Found balance for category', [
+                    'category' => $category->name,
+                    'amount' => $balance->amount,
+                    'date' => $balance->date
+                ]);
+
+                // Tentukan kategori berdasarkan nama
+                switch (strtolower($category->name)) {
+                    case 'kas':
+                        $cash = $balance->amount;
+                        break;
+                    case 'bank':
+                        $bank1 = $balance->amount;
+                        break;
+                    case 'bank bca':
+                        $bank1 = $balance->amount; // BCA masuk ke bank1
+                        break;
+                    case 'bank mandiri':
+                        $bank2 = $balance->amount; // Mandiri masuk ke bank2
+                        break;
+                }
+            }
+        }
+
+        // d. Estimasi kas jika semua saldo nol
+        $estimatedCash = false;
+        if ($cash == 0 && $bank1 == 0 && $bank2 == 0) {
+            $estimatedCash = true;
+
+            // Ambil total penjualan tunai
+            $cashSales = Sale::where('payment_type', 'tunai')
+                ->where('date', '<=', $date)
+                ->sum('total_amount');
+
+            // Ambil total pembelian tunai
+            $cashPurchases = Purchase::where('payment_type', 'tunai')
+                        ->where('date', '<=', $date)
+                        ->sum('total_amount');
+
+            // Ambil total pengeluaran tunai
+            $cashExpenses = Expense::where('date', '<=', $date)
+                        ->sum('amount');
+
+            // Estimasi saldo kas
+            $cash = $cashSales - $cashPurchases - $cashExpenses;
+            if ($cash < 0) $cash = 0; // Pastikan kas tidak negatif
+
+            Log::info('Estimated Cash Balance', [
+                'cashSales' => $cashSales,
+                'cashPurchases' => $cashPurchases,
+                'cashExpenses' => $cashExpenses,
+                'estimatedCash' => $cash
+            ]);
+        }
 
         // Total kas dan bank
         $totalCashAndBank = $cash + $bank1 + $bank2;
 
+        Log::info('Total Cash & Bank', [
+            'cash' => $cash,
+            'bank1' => $bank1,
+            'bank2' => $bank2,
+            'total' => $totalCashAndBank,
+            'estimated' => $estimatedCash
+        ]);
+
         // 2. Piutang Dagang
         $accountsReceivable = AccountReceivable::where('status', '!=', 'paid')
-                            ->where('due_date', '>=', $date)
+                            ->where('due_date', '<=', $date)
                             ->sum(DB::raw('amount - paid_amount'));
 
+        Log::info('Accounts Receivable', [
+            'total' => $accountsReceivable
+        ]);
+
         // 3. Persediaan Barang
-        $inventory = DB::table('stock_warehouses')
-                    ->join('products', 'stock_warehouses.product_id', '=', 'products.id')
-                    ->sum(DB::raw('stock_warehouses.quantity * products.purchase_price'));
+        // a. Persediaan di gudang
+        $warehouseInventory = DB::table('stock_warehouses')
+                            ->join('products', 'stock_warehouses.product_id', '=', 'products.id')
+                            ->whereNull('products.deleted_at')
+                            ->sum(DB::raw('COALESCE(stock_warehouses.quantity, 0) * COALESCE(products.purchase_price, 0)'));
+
+        // b. Persediaan di toko
+        $storeInventory = DB::table('stock_stores')
+                        ->join('products', 'stock_stores.product_id', '=', 'products.id')
+                        ->whereNull('products.deleted_at')
+                        ->sum(DB::raw('COALESCE(stock_stores.quantity, 0) * COALESCE(products.purchase_price, 0)'));
+
+        $inventory = $warehouseInventory + $storeInventory;
+
+        Log::info('Inventory', [
+            'warehouse' => $warehouseInventory,
+            'store' => $storeInventory,
+            'total' => $inventory
+        ]);
 
         // Total Aktiva Lancar
         $totalCurrentAssets = $totalCashAndBank + $accountsReceivable + $inventory;
 
-        // Aktiva Tetap (Fixed Assets)
-        // Implementasi: Jika ada data aktiva tetap di sistem
+        // 4. Aktiva Tetap (Fixed Assets)
         $fixedAssets = 0;
         $accumulatedDepreciation = 0;
+
+        // Cari saldo aktiva tetap jika ada
+        $fixedAssetCategory = BalanceCategory::where('type', 'asset')
+            ->where(function($query) {
+                $query->where('name', 'like', '%aset tetap%')
+                    ->orWhere('name', 'like', '%fixed asset%')
+                    ->orWhere('name', 'like', '%aktiva tetap%');
+            })
+            ->first();
+
+        if ($fixedAssetCategory) {
+            $fixedAssetBalance = InitialBalance::where('category_id', $fixedAssetCategory->id)
+                ->where('date', '<=', $date)
+                ->orderBy('date', 'desc')
+                ->first();
+
+            if ($fixedAssetBalance) {
+                $fixedAssets = $fixedAssetBalance->amount;
+            }
+        }
+
+        // Cari akumulasi penyusutan jika ada
+        $depreciationCategory = BalanceCategory::where('type', 'asset')
+            ->where(function($query) {
+                $query->where('name', 'like', '%penyusutan%')
+                    ->orWhere('name', 'like', '%depreciation%')
+                    ->orWhere('name', 'like', '%akumulasi%');
+            })
+            ->first();
+
+        if ($depreciationCategory) {
+            $depreciationBalance = InitialBalance::where('category_id', $depreciationCategory->id)
+                ->where('date', '<=', $date)
+                ->orderBy('date', 'desc')
+                ->first();
+
+            if ($depreciationBalance) {
+                $accumulatedDepreciation = $depreciationBalance->amount;
+            }
+        }
+
         $netFixedAssets = $fixedAssets - $accumulatedDepreciation;
+
+        Log::info('Fixed Assets', [
+            'assets' => $fixedAssets,
+            'depreciation' => $accumulatedDepreciation,
+            'net' => $netFixedAssets
+        ]);
 
         // Total Aktiva
         $totalAssets = $totalCurrentAssets + $netFixedAssets;
 
         // --- PASIVA (LIABILITIES & EQUITY) ---
 
-        // Kewajiban Lancar (Current Liabilities)
-
         // 1. Hutang Dagang
         $accountsPayable = AccountPayable::where('status', '!=', 'paid')
-                        ->where('due_date', '>=', $date)
+                        ->where('due_date', '<=', $date)
                         ->sum(DB::raw('amount - paid_amount'));
 
-        // 2. Hutang Pajak (jika ada)
+        Log::info('Accounts Payable', [
+            'total' => $accountsPayable
+        ]);
+
+        // 2. Hutang Pajak dan Kewajiban Lainnya
         $taxPayable = 0;
+        $longTermLiabilities = 0;
+
+        // Ambil kategori kewajiban (liability)
+        $liabilityCategories = BalanceCategory::where('type', 'liability')->get();
+        foreach ($liabilityCategories as $category) {
+            $balance = InitialBalance::where('category_id', $category->id)
+                ->where('date', '<=', $date)
+                ->orderBy('date', 'desc')
+                ->first();
+
+            if ($balance) {
+                $categoryName = strtolower($category->name);
+                if (str_contains($categoryName, 'pajak') || str_contains($categoryName, 'tax')) {
+                    $taxPayable += $balance->amount;
+                } elseif (str_contains($categoryName, 'jangka panjang') ||
+                        str_contains($categoryName, 'long term') ||
+                        str_contains($categoryName, 'kredit')) {
+                    $longTermLiabilities += $balance->amount;
+                }
+            }
+        }
 
         // Total Kewajiban Lancar
         $totalCurrentLiabilities = $accountsPayable + $taxPayable;
 
-        // Kewajiban Jangka Panjang (jika ada)
-        $longTermLiabilities = 0;
-
         // Total Kewajiban
         $totalLiabilities = $totalCurrentLiabilities + $longTermLiabilities;
 
-        // Ekuitas (Equity)
-        // Implementasi: Ambil modal awal dan laba ditahan
-        $initialCapital = 0; // Modal awal
+        // 3. Ekuitas
+        $initialCapital = 0;
 
-        // Laba tahun berjalan
+        // Ambil kategori ekuitas (equity)
+        $equityCategories = BalanceCategory::where('type', 'equity')->get();
+        foreach ($equityCategories as $category) {
+            $balance = InitialBalance::where('category_id', $category->id)
+                ->where('date', '<=', $date)
+                ->orderBy('date', 'desc')
+                ->first();
+
+            if ($balance) {
+                $initialCapital += $balance->amount;
+            }
+        }
+
+        // Jika tidak ada modal, estimasi dari saldo awal
+        if ($initialCapital == 0) {
+            // Asumsi modal awal = total aset - total kewajiban berdasarkan saldo awal
+            $initialCapital = max(0, $totalAssets - $totalLiabilities);
+        }
+
+        Log::info('Equity', [
+            'initialCapital' => $initialCapital
+        ]);
+
+        // 4. Laba tahun berjalan
         $startOfYear = Carbon::parse($date)->startOfYear()->format('Y-m-d');
 
-        // Pendapatan
+        // a. Pendapatan: penjualan
         $revenue = Sale::whereBetween('date', [$startOfYear, $date])
                 ->sum('total_amount');
 
-        // Harga Pokok Penjualan
-        $costOfGoodsSold = SaleDetail::join('products', 'sale_details.product_id', '=', 'products.id')
-                        ->whereHas('sale', function($q) use ($startOfYear, $date) {
-                            $q->whereBetween('date', [$startOfYear, $date]);
-                        })
-                        ->sum(DB::raw('sale_details.quantity * products.purchase_price'));
+        // b. Harga Pokok Penjualan
+        $costOfGoodsSold = DB::table('sale_details')
+                        ->join('sales', 'sale_details.sale_id', '=', 'sales.id')
+                        ->join('products', 'sale_details.product_id', '=', 'products.id')
+                        ->whereBetween('sales.date', [$startOfYear, $date])
+                        ->sum(DB::raw('COALESCE(sale_details.quantity, 0) * COALESCE(products.purchase_price, 0)'));
 
-        // Beban Operasional
+        // c. Beban Operasional: pengeluaran
         $operatingExpenses = Expense::whereBetween('date', [$startOfYear, $date])
                             ->sum('amount');
 
-        // Laba Bersih
+        // d. Laba Bersih
         $netIncome = $revenue - $costOfGoodsSold - $operatingExpenses;
+
+        Log::info('Net Income Calculation', [
+            'startOfYear' => $startOfYear,
+            'revenue' => $revenue,
+            'cogs' => $costOfGoodsSold,
+            'expenses' => $operatingExpenses,
+            'netIncome' => $netIncome
+        ]);
 
         // Total Ekuitas
         $totalEquity = $initialCapital + $netIncome;
@@ -998,6 +1202,15 @@ public function payables(Request $request)
 
         // Perbedaan (seharusnya 0 jika balance)
         $difference = $totalAssets - $totalLiabilitiesAndEquity;
+
+        Log::info('Balance Sheet Summary', [
+            'totalAssets' => $totalAssets,
+            'totalLiabilitiesAndEquity' => $totalLiabilitiesAndEquity,
+            'difference' => $difference
+        ]);
+
+        // Tambahkan variabel untuk view
+        $estimatedBalance = $estimatedCash || ($initialCapital == 0);
 
         return view('reports.balance-sheet', compact(
             'date',
@@ -1022,10 +1235,9 @@ public function payables(Request $request)
             'totalEquity',
             'totalLiabilitiesAndEquity',
             'difference',
-            'initialBalance'
+            'estimatedBalance'
         ));
     }
-
     /**
      * Display sales report by store/outlet (sorted by omzet - highest to lowest).
      */

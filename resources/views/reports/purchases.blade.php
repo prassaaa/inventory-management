@@ -62,7 +62,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-filter me-1"></i> Filter
@@ -141,7 +141,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-4">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
@@ -192,7 +192,7 @@
                                 <span class="badge {{ $purchase->status === 'pending' ? 'bg-warning-light text-warning' : '' }}
                                                 {{ $purchase->status === 'complete' ? 'bg-success-light text-success' : '' }}
                                                 {{ $purchase->status === 'partial' ? 'bg-info-light text-info' : '' }} rounded-pill px-2">
-                                    {{ $purchase->status === 'pending' ? 'Pending' : 
+                                    {{ $purchase->status === 'pending' ? 'Pending' :
                                       ($purchase->status === 'complete' ? 'Selesai' : 'Sebagian') }}
                                 </span>
                             </td>
@@ -234,16 +234,39 @@
                         @foreach($top_products as $product)
                         <tr>
                             <td>
-                                <a href="{{ route('products.show', $product->product) }}">
-                                    <span class="fw-medium">{{ $product->product->code }}</span> - {{ $product->product->name }}
-                                </a>
+                                @if($product->product)
+                                    @if($product->product->deleted_at)
+                                        <span class="fw-medium">{{ $product->product->code }}</span> -
+                                        {{ $product->product->name }}
+                                        <span class="badge bg-danger text-white">terhapus</span>
+                                    @else
+                                        <a href="{{ route('products.show', ['product' => $product->product->id]) }}">
+                                            <span class="fw-medium">{{ $product->product->code }}</span> - {{ $product->product->name }}
+                                        </a>
+                                    @endif
+                                @else
+                                    <span class="text-muted">Produk tidak tersedia</span>
+                                @endif
                             </td>
                             <td>
-                                <span class="badge bg-primary-light text-primary rounded-pill px-2">
-                                    {{ $product->product->category->name }}
-                                </span>
+                                @if($product->product && $product->product->category)
+                                    <span class="badge bg-primary-light text-primary rounded-pill px-2">
+                                        {{ $product->product->category->name }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-secondary rounded-pill px-2">
+                                        Tidak Terkategori
+                                    </span>
+                                @endif
                             </td>
-                            <td>{{ $product->total_quantity }} {{ $product->product->baseUnit->name }}</td>
+                            <td>
+                                {{ $product->total_quantity }}
+                                @if($product->product && isset($product->product->baseUnit) && $product->product->baseUnit)
+                                    {{ $product->product->baseUnit->name }}
+                                @else
+                                    unit
+                                @endif
+                            </td>
                             <td>Rp {{ number_format($product->total_amount, 0, ',', '.') }}</td>
                         </tr>
                         @endforeach
@@ -262,7 +285,7 @@
         if ($.fn.dataTable.isDataTable('#purchasesTable')) {
             $('#purchasesTable').DataTable().destroy();
         }
-        
+
         // Inisialisasi DataTable baru
         var purchasesTable = $('#purchasesTable').DataTable({
             language: {
@@ -274,12 +297,12 @@
             order: [[0, 'desc']],
             destroy: true // Pastikan opsi destroy diaktifkan
         });
-        
+
         // Custom search untuk tabel pembelian
         $('#customSearch').keyup(function() {
             purchasesTable.search($(this).val()).draw();
         });
-        
+
         // Inisialisasi tabel produk terbanyak dibeli
         $('#topProductsTable').DataTable({
             language: {
@@ -291,7 +314,7 @@
             responsive: true,
             destroy: true
         });
-        
+
         // Purchases Chart
         var ctx = document.getElementById("purchasesChart");
         var purchasesChart = new Chart(ctx, {
@@ -342,7 +365,7 @@
                 }
             }
         });
-        
+
         // Status Chart
         var ctx2 = document.getElementById("statusChart");
         var statusChart = new Chart(ctx2, {
@@ -370,7 +393,7 @@
                 }
             }
         });
-        
+
         // Initialize tooltips
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         tooltipTriggerList.map(function (tooltipTriggerEl) {
