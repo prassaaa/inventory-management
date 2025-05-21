@@ -45,7 +45,10 @@ class StockController extends Controller
             $selectedStore = request('store_id') ? Store::findOrFail(request('store_id')) : $stores->first();
         }
 
-        $query = StockStore::with(['product.category', 'product.baseUnit', 'unit'])
+        // Gunakan withTrashed() untuk mengambil produk yang sudah dihapus juga
+        $query = StockStore::with(['product' => function($query) {
+                        $query->withTrashed();
+                    }, 'product.category', 'unit'])
                    ->where('store_id', $selectedStore->id ?? 0);
 
         $products = $query->get();

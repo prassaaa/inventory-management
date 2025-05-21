@@ -54,23 +54,50 @@
                     </thead>
                     <tbody>
                         @foreach($products as $stock)
-                            <tr>
-                                <td><span class="fw-medium">{{ $stock->product->code }}</span></td>
+                            @php
+                                $productDeleted = $stock->product && $stock->product->deleted_at;
+                            @endphp
+                            <tr class="{{ $productDeleted ? 'table-secondary' : '' }}">
                                 <td>
-                                    <a href="{{ route('products.show', $stock->product) }}">
-                                        {{ $stock->product->name }}
-                                    </a>
-                                </td>
-                                <td>
-                                    <span class="badge bg-primary-light text-primary rounded-pill px-2">
-                                        {{ $stock->product->category->name }}
+                                    <span class="fw-medium">
+                                        {{ $stock->product ? $stock->product->code : 'N/A' }}
                                     </span>
+                                    @if($productDeleted)
+                                        <span class="badge bg-danger ms-1">Dihapus</span>
+                                    @endif
                                 </td>
-                                <td>{{ $stock->unit->name }}</td>
-                                <td>{{ intval($stock->quantity) }} {{ $stock->unit->name }}</td>
-                                <td>{{ intval($stock->product->min_stock) }}</td>
                                 <td>
-                                    @if($stock->quantity <= 0)
+                                    @if(!$stock->product)
+                                        <span class="text-muted">Produk Tidak Tersedia</span>
+                                    @elseif($productDeleted)
+                                        <span>{{ $stock->product->name }}</span>
+                                        <small class="text-danger d-block">
+                                            Dihapus pada: {{ $stock->product->deleted_at->format('d/m/Y H:i') }}
+                                        </small>
+                                    @else
+                                        <a href="{{ route('products.show', $stock->product) }}">
+                                            {{ $stock->product->name }}
+                                        </a>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($stock->product && $stock->product->category)
+                                        <span class="badge bg-primary-light text-primary rounded-pill px-2">
+                                            {{ $stock->product->category->name }}
+                                        </span>
+                                    @else
+                                        <span class="badge bg-secondary rounded-pill px-2">Tidak Terkategori</span>
+                                    @endif
+                                </td>
+                                <td>{{ $stock->unit ? $stock->unit->name : 'N/A' }}</td>
+                                <td>{{ intval($stock->quantity) }} {{ $stock->unit ? $stock->unit->name : '' }}</td>
+                                <td>{{ $stock->product ? intval($stock->product->min_stock) : 'N/A' }}</td>
+                                <td>
+                                    @if(!$stock->product)
+                                        <span class="badge bg-secondary rounded-pill px-2">Produk Tidak Tersedia</span>
+                                    @elseif($productDeleted)
+                                        <span class="badge bg-danger rounded-pill px-2">Produk Dihapus</span>
+                                    @elseif($stock->quantity <= 0)
                                         <span class="badge bg-danger-light text-danger rounded-pill px-2">Habis</span>
                                     @elseif($stock->quantity < $stock->product->min_stock)
                                         <span class="badge bg-warning-light text-warning rounded-pill px-2">Hampir Habis</span>
