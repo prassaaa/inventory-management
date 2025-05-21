@@ -11,9 +11,14 @@
             </h1>
             <p class="text-muted">Tambahkan data pengeluaran keuangan</p>
         </div>
-        <a href="{{ route('reports.finance') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Kembali
-        </a>
+        <div>
+            <a href="{{ route('expense-categories.index') }}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-tags me-1"></i> Kelola Kategori
+            </a>
+            <a href="{{ route('reports.finance') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Kembali
+            </a>
+        </div>
     </div>
 
     @if(session('error'))
@@ -39,17 +44,22 @@
                     </div>
                     <div class="col-md-4">
                         <label for="category_id" class="form-label">Kategori</label>
-                        <select class="form-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
-                            <option value="">-- Pilih Kategori --</option>
-                            @foreach($categories as $category)
-                                <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
-                                    {{ $category->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('category_id')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
+                        <div class="input-group">
+                            <select class="form-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
+                                <option value="">-- Pilih Kategori --</option>
+                                @foreach($categories as $category)
+                                    <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
+                                        {{ $category->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            @error('category_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
                     </div>
                     <div class="col-md-4">
                         <label for="amount" class="form-label">Jumlah</label>
@@ -108,6 +118,41 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Tambah Kategori -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="addCategoryForm" action="{{ route('expense-categories.store') }}" method="POST">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCategoryModalLabel">Tambah Kategori Pengeluaran</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="category_name" class="form-label">Nama Kategori</label>
+                        <input type="text" class="form-control" id="category_name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="category_description" class="form-label">Keterangan (Opsional)</label>
+                        <textarea class="form-control" id="category_description" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="category_is_active" name="is_active" value="1" checked>
+                        <label class="form-check-label" for="category_is_active">
+                            Aktif
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Kategori</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -153,6 +198,46 @@
 
             input.val(value);
         }
+
+        // Ajax untuk kategori baru
+        $('#addCategoryForm').on('submit', function(e) {
+            e.preventDefault();
+
+            $.ajax({
+                url: $(this).attr('action'),
+                type: 'POST',
+                data: $(this).serialize(),
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        // Tutup modal
+                        $('#addCategoryModal').modal('hide');
+
+                        // Tambahkan kategori baru ke dropdown
+                        var newOption = new Option(response.category.name, response.category.id, true, true);
+                        $('#category_id').append(newOption).trigger('change');
+
+                        // Reset form
+                        $('#addCategoryForm')[0].reset();
+
+                        // Tampilkan notifikasi
+                        alert('Kategori berhasil ditambahkan!');
+                    } else {
+                        alert('Terjadi kesalahan: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    var errors = xhr.responseJSON.errors;
+                    var errorMessage = '';
+
+                    for (var key in errors) {
+                        errorMessage += errors[key][0] + '\n';
+                    }
+
+                    alert('Terjadi kesalahan: ' + errorMessage);
+                }
+            });
+        });
     });
 </script>
 @endsection

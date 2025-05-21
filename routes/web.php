@@ -12,6 +12,7 @@ use App\Http\Controllers\StoreController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\StockOpnameController;
@@ -137,12 +138,17 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/finance/balance/store', [FinanceBalanceController::class, 'store'])->name('finance.balance.store');
         Route::get('/finance/expense/create', [FinanceBalanceController::class, 'createExpense'])->name('finance.expense.create');
         Route::post('/finance/expense/store', [FinanceBalanceController::class, 'storeExpense'])->name('finance.expense.store');
+
         // Finance Balance & Expense Management
         Route::get('/finance/categories/balance', [FinanceBalanceController::class, 'manageBalanceCategories'])->name('finance.categories.balance');
         Route::post('/finance/categories/balance/store', [FinanceBalanceController::class, 'storeBalanceCategory'])->name('finance.categories.balance.store');
 
         Route::get('/finance/categories/expense', [FinanceBalanceController::class, 'manageExpenseCategories'])->name('finance.categories.expense');
         Route::post('/finance/categories/expense/store', [FinanceBalanceController::class, 'storeExpenseCategory'])->name('finance.categories.expense.store');
+
+        // BARU: Expense Categories Management
+        Route::resource('expense-categories', ExpenseCategoryController::class);
+        Route::post('expense-categories/batch', [ExpenseCategoryController::class, 'batchStore'])->name('expense-categories.batch-store');
     });
 
     // Sales (POS)
