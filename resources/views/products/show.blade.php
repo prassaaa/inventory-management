@@ -84,7 +84,7 @@
                             </div>
                         </div>
 
-                        @if($product->store_source == 'store' && $product->is_processed)
+                        @if($product->store_source == 'toko' && $product->is_processed)
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <h6 class="fw-bold text-dark">Jenis Produk</h6>
@@ -199,7 +199,7 @@
                                             {{ $ingredient->name }}
                                         </a>
                                     </td>
-                                    <td>{{ intval($ingredient->pivot->quantity) }}</td>
+                                    <td>{{ floatval($ingredient->pivot->quantity) == intval($ingredient->pivot->quantity) ? intval($ingredient->pivot->quantity) : floatval($ingredient->pivot->quantity) }}</td>
                                     <td>
                                         @php
                                             $unitName = App\Models\Unit::find($ingredient->pivot->unit_id)->name ?? '';
@@ -224,6 +224,8 @@
                 </div>
                 <div class="card-body">
                     <div class="row mb-4">
+                        <!-- CONDITIONAL: Hanya tampilkan Stok Gudang jika user tidak memiliki store_id -->
+                        @if(!Auth::user()->store_id)
                         <div class="col-md-6">
                             <div class="card h-100">
                                 <div class="card-body p-3">
@@ -250,7 +252,10 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        @endif
+
+                        <!-- Minimum Stok - Tetap ditampilkan untuk semua user -->
+                        <div class="{{ Auth::user()->store_id ? 'col-md-12' : 'col-md-6' }}">
                             <div class="card h-100">
                                 <div class="card-body p-3">
                                     <div class="d-flex justify-content-between">
@@ -356,7 +361,7 @@
                                                     </a>
                                                 </td>
                                                 <td>{{ $purchase->purchase->supplier->name }}</td>
-                                                <td>{{ intval($purchase->quantity) }} {{ $purchase->unit->name }}</td>
+                                                <td>{{ floatval($purchase->quantity) == intval($purchase->quantity) ? intval($purchase->quantity) : floatval($purchase->quantity) }} {{ $purchase->unit->name }}</td>
                                                 <td>Rp {{ number_format($purchase->price, 0, ',', '.') }}</td>
                                             </tr>
                                             @endforeach
@@ -393,7 +398,7 @@
                                                     </a>
                                                 </td>
                                                 <td>{{ $sale->sale->store->name }}</td>
-                                                <td>{{ intval($sale->quantity) }} {{ $sale->unit->name }}</td>
+                                                <td>{{ floatval($sale->quantity) == intval($sale->quantity) ? intval($sale->quantity) : floatval($sale->quantity) }} {{ $sale->unit->name }}</td>
                                                 <td>Rp {{ number_format($sale->price, 0, ',', '.') }}</td>
                                             </tr>
                                             @endforeach

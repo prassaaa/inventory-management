@@ -19,31 +19,6 @@
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     }
 
-    /* Style untuk produk dengan stok habis */
-    .product-card.out-of-stock {
-        opacity: 0.7;
-        cursor: not-allowed;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .product-card.out-of-stock::before {
-        content: "STOK HABIS";
-        position: absolute;
-        width: 150%;
-        top: 45%;
-        left: -25%;
-        text-align: center;
-        background-color: rgba(220, 53, 69, 0.8);
-        color: white;
-        font-weight: bold;
-        padding: 5px 0;
-        transform: rotate(-35deg);
-        z-index: 10;
-        font-size: 12px;
-        letter-spacing: 1px;
-    }
-
     .product-image {
         height: 100px;
         object-fit: contain;
@@ -173,19 +148,14 @@
                     <div class="products-container">
                         <div class="row" id="products-grid">
                             @foreach($products as $product)
-                            @php
-                                $productStock = $product->storeStock ? $product->storeStock->quantity : 0;
-                                $outOfStock = $productStock <= 0;
-                            @endphp
                             <div class="col-md-4 col-lg-3 mb-3 product-item" data-category="{{ $product->category_id }}" data-name="{{ strtolower($product->name) }}" data-code="{{ strtolower($product->code) }}">
-                                <div class="card product-card {{ $outOfStock ? 'out-of-stock' : '' }}"
+                                <div class="card product-card"
                                     data-id="{{ $product->id }}"
                                     data-code="{{ $product->code }}"
                                     data-name="{{ $product->name }}"
                                     data-price="{{ $product->selling_price }}"
                                     data-unit-id="{{ $product->base_unit_id }}"
                                     data-unit-name="{{ $product->baseUnit->name }}"
-                                    data-stock="{{ $productStock }}"
                                     data-is-processed="{{ $product->is_processed ? 'true' : 'false' }}">
                                     @if($product->is_processed)
                                         <span class="processed-badge">
@@ -487,7 +457,7 @@
             }
         });
 
-        // Handle adding product to cart - Direvisi untuk menghapus popup ingredients
+        // Handle adding product to cart - REMOVED stock checking
         function addProductToCart(product) {
             const productId = product.data('id');
             const productName = product.data('name');
@@ -496,37 +466,13 @@
             const unitName = product.data('unit-name');
             const isProcessed = (product.data('is-processed') === true || product.data('is-processed') === 'true' ||
                                product.data('is-processed') === '1' || product.data('is-processed') === 1) ? 1 : 0;
-            const currentStock = parseFloat(product.data('stock'));
-
-            // Jika stok 0 atau kartu memiliki class out-of-stock, tampilkan pesan error dan hentikan proses
-            if (currentStock <= 0 || product.hasClass('out-of-stock')) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Stok Habis',
-                    text: `Produk "${productName}" tidak tersedia (stok: 0)`
-                });
-                return;
-            }
 
             // Check if product already in cart
             const existingItemIndex = cartItems.findIndex(item => item.product_id === productId);
 
-            // Jika produk sudah ada di keranjang, cek apakah jumlah yang akan ditambahkan melebihi stok
             if (existingItemIndex > -1) {
-                const newQuantity = cartItems[existingItemIndex].quantity + 1;
-
-                // Jika jumlah baru melebihi stok, tampilkan pesan error
-                if (newQuantity > currentStock) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Stok Tidak Cukup',
-                        text: `Stok produk "${productName}" tidak mencukupi (tersedia: ${currentStock})`
-                    });
-                    return;
-                }
-
                 // Increment quantity
-                cartItems[existingItemIndex].quantity = newQuantity;
+                cartItems[existingItemIndex].quantity += 1;
             } else {
                 // Add new item
                 cartItems.push({
@@ -536,49 +482,26 @@
                     quantity: 1,
                     unit_id: unitId,
                     unit_name: unitName,
-                    is_processed: isProcessed,
-                    stock: currentStock
+                    is_processed: isProcessed
                 });
             }
 
             updateCartTable();
         }
 
-        // Add product to cart when clicked
+        // Add product to cart when clicked - REMOVED stock checking
         $(document).on('click', '.product-card', function() {
-            // Hanya proses jika produk bukan out-of-stock
-            if (!$(this).hasClass('out-of-stock')) {
-                addProductToCart($(this));
-            } else {
-                const productName = $(this).data('name');
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Stok Habis',
-                    text: `Produk "${productName}" tidak tersedia (stok: 0)`
-                });
-            }
+            addProductToCart($(this));
         });
 
-        // Update item quantity
+        // Update item quantity - REMOVED stock checking
         $(document).on('change', '.item-quantity', function() {
             const index = $(this).data('index');
             const newQuantity = parseInt($(this).val()) || 1;
-            const currentStock = cartItems[index].stock || 0;
 
             if (newQuantity < 1) {
                 $(this).val(1);
                 cartItems[index].quantity = 1;
-            } else if (newQuantity > currentStock) {
-                // Jika jumlah yang diinput melebihi stok, tampilkan pesan error
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Stok Tidak Cukup',
-                    text: `Stok produk "${cartItems[index].name}" tidak mencukupi (tersedia: ${currentStock})`
-                });
-
-                // Reset jumlah ke nilai maksimum yang diperbolehkan (stok yang tersedia)
-                $(this).val(currentStock);
-                cartItems[index].quantity = currentStock;
             } else {
                 cartItems[index].quantity = newQuantity;
             }

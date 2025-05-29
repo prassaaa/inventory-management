@@ -174,8 +174,8 @@ class BackOfficeStoreOrderController extends Controller
 
     public function confirm(Request $request, $id)
     {
-        // Pastikan hanya admin pusat yang bisa konfirmasi
-        if (!Auth::user()->hasRole(['owner', 'admin_back_office'])) {
+        // Pastikan hanya owner atau admin_back_office yang bisa konfirmasi
+        if (!Auth::user()->hasRole('owner') && !Auth::user()->hasRole('admin_back_office')) {
             return redirect()->back()->with('error', 'Anda tidak memiliki izin untuk mengkonfirmasi pesanan.');
         }
 
@@ -185,27 +185,54 @@ class BackOfficeStoreOrderController extends Controller
             return redirect()->back()->with('error', 'Pesanan ini tidak dapat dikonfirmasi (status saat ini: ' . $storeOrder->status . ').');
         }
 
-        // Update status pesanan
-        $storeOrder->status = StoreOrder::STATUS_CONFIRMED_BY_ADMIN;
-        $storeOrder->confirmed_at = Carbon::now();
-        $storeOrder->updated_by = Auth::id();
-        $storeOrder->save();
+        DB::beginTransaction();
+        try {
+            // Update status pesanan
+            $storeOrder->update([
+                'status' => StoreOrder::STATUS_CONFIRMED_BY_ADMIN,
+                'confirmed_at' => Carbon::now(),
+                'updated_by' => Auth::id()
+            ]);
 
-        // Kirim notifikasi ke Admin Gudang
-        $warehouseAdmins = User::role('admin_gudang')->get();
-        foreach ($warehouseAdmins as $admin) {
-            // Implementasi notifikasi akan ditambahkan nanti
+            // Log aktivitas untuk debugging
+            \Log::info('Pesanan dikonfirmasi', [
+                'order_id' => $storeOrder->id,
+                'order_number' => $storeOrder->order_number,
+                'confirmed_by' => Auth::user()->name,
+                'user_role' => Auth::user()->getRoleNames()
+            ]);
+
+            // Kirim notifikasi ke Admin Gudang
+            $warehouseAdmins = User::role('admin_gudang')->get();
+            foreach ($warehouseAdmins as $admin) {
+                // Implementasi notifikasi akan ditambahkan nanti
+                \Log::info('Notifikasi dikirim ke admin gudang', ['admin_id' => $admin->id]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('store-orders.index')
+                ->with('success', 'Pesanan berhasil dikonfirmasi dan diteruskan ke admin gudang.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            \Log::error('Error saat konfirmasi pesanan', [
+                'order_id' => $id,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan saat mengkonfirmasi pesanan: ' . $e->getMessage());
         }
-
-        return redirect()->route('store-orders.index')
-            ->with('success', 'Pesanan berhasil dikonfirmasi dan diteruskan ke admin gudang.');
     }
 
     // Tambahkan method baru untuk meneruskan ke gudang
     public function forwardToWarehouse($id)
     {
-        // Pastikan hanya admin pusat yang bisa meneruskan
-        if (!Auth::user()->hasRole(['owner', 'admin_back_office'])) {
+        // Pastikan hanya owner atau admin_back_office yang bisa meneruskan
+        if (!Auth::user()->hasRole('owner') && !Auth::user()->hasRole('admin_back_office')) {
             return redirect()->back()->with('error', 'Anda tidak memiliki izin untuk meneruskan pesanan.');
         }
 
@@ -215,14 +242,40 @@ class BackOfficeStoreOrderController extends Controller
             return redirect()->back()->with('error', 'Pesanan ini tidak dapat diteruskan ke gudang (status saat ini: ' . $storeOrder->status . ').');
         }
 
-        // Update status pesanan
-        $storeOrder->status = StoreOrder::STATUS_FORWARDED_TO_WAREHOUSE;
-        $storeOrder->forwarded_at = Carbon::now();
-        $storeOrder->updated_by = Auth::id();
-        $storeOrder->save();
+        DB::beginTransaction();
+        try {
+            // Update status pesanan
+            $storeOrder->update([
+                'status' => StoreOrder::STATUS_FORWARDED_TO_WAREHOUSE,
+                'forwarded_at' => Carbon::now(),
+                'updated_by' => Auth::id()
+            ]);
 
-        return redirect()->route('store-orders.index')
-            ->with('success', 'Pesanan berhasil diteruskan ke admin gudang.');
+            // Log aktivitas untuk debugging
+            \Log::info('Pesanan diteruskan ke gudang', [
+                'order_id' => $storeOrder->id,
+                'order_number' => $storeOrder->order_number,
+                'forwarded_by' => Auth::user()->name,
+                'user_role' => Auth::user()->getRoleNames()
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('store-orders.index')
+                ->with('success', 'Pesanan berhasil diteruskan ke admin gudang.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            \Log::error('Error saat meneruskan pesanan ke gudang', [
+                'order_id' => $id,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan saat meneruskan pesanan: ' . $e->getMessage());
+        }
     }
 
     // Tambahkan method untuk konfirmasi penerimaan oleh toko

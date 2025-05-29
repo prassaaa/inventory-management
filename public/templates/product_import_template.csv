@@ -1,0 +1,3 @@
+code,name,category_id,base_unit_id,purchase_price,selling_price,min_stock,description,is_active,store_source
+P0001,"Contoh Produk 1",1,1,10000,12000,10,"Contoh deskripsi produk",1,pusat
+P0002,"Contoh Produk 2",2,2,15000,18000,5,"Contoh deskripsi produk 2",1,toko

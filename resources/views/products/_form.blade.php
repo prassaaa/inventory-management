@@ -133,20 +133,25 @@
     <label for="store_source">Sumber Produk</label>
     <select class="form-select @error('store_source') is-invalid @enderror" id="store_source" name="store_source">
         <option value="pusat" {{ old('store_source', $product->store_source ?? 'pusat') == 'pusat' ? 'selected' : '' }}>Pusat</option>
-        <option value="store" {{ old('store_source', $product->store_source ?? '') == 'store' ? 'selected' : '' }}>Store</option>
+        <option value="toko" {{ old('store_source', $product->store_source ?? '') == 'toko' ? 'selected' : '' }}>Toko</option>
     </select>
-    <small class="form-text text-muted">Pilih 'Store' jika produk ini akan tersedia di semua store</small>
+    <small class="form-text text-muted">Pilih 'Toko' jika produk ini akan tersedia di semua toko</small>
     @error('store_source')
         <div class="invalid-feedback">{{ $message }}</div>
     @enderror
 </div>
 
-<div class="form-check mb-3" id="is-processed-group" style="{{ old('store_source', $product->store_source ?? 'pusat') == 'store' ? '' : 'display: none;' }}">
+<div class="form-check mb-3" id="is-processed-group" style="{{ old('store_source', $product->store_source ?? 'pusat') == 'toko' ? '' : 'display: none;' }}">
+    <!-- Hidden input untuk memastikan nilai 0 terkirim jika checkbox tidak dicentang -->
+    <input type="hidden" name="is_processed" value="0">
     <input class="form-check-input" type="checkbox" id="is_processed" name="is_processed" value="1" {{ old('is_processed', $product->is_processed ?? false) ? 'checked' : '' }}>
     <label class="form-check-label" for="is_processed">
         Produk Olahan
     </label>
-    <small class="form-text text-muted">Centang jika produk ini adalah olahan dari bahan-bahan yang dibeli dari pusat</small>
+    <small class="form-text text-muted d-block">Centang jika produk ini adalah olahan dari bahan-bahan yang dibeli dari pusat</small>
+    @error('is_processed')
+        <div class="text-danger small">{{ $message }}</div>
+    @enderror
 </div>
 
 <div id="ingredients-section" style="{{ old('is_processed', $product->is_processed ?? false) ? '' : 'display: none;' }}">
@@ -174,7 +179,13 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label d-block d-md-none">Jumlah</label>
-                            <input type="number" class="form-control ingredient-quantity" name="ingredients[{{ $index }}][quantity]" placeholder="Jumlah" value="{{ $ingredient->pivot->quantity }}" step="0.01" min="0.01">
+                            <input type="number"
+                                class="form-control ingredient-quantity"
+                                name="ingredients[{{ $index }}][quantity]"
+                                placeholder="Jumlah"
+                                value="{{ floatval($ingredient->pivot->quantity) == intval($ingredient->pivot->quantity) ? intval($ingredient->pivot->quantity) : floatval($ingredient->pivot->quantity) }}"
+                                step="0.01"
+                                min="0.01">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label d-block d-md-none">Satuan</label>
@@ -424,9 +435,10 @@
             $(this).val(value);
         });
 
-        // Toggle store selection
+        // FIXED: Toggle store selection - ganti 'store' menjadi 'toko'
         $('#store_source').change(function() {
-            if ($(this).val() === 'store') {
+            console.log('Store source changed to:', $(this).val());
+            if ($(this).val() === 'toko') {
                 $('#is-processed-group').show();
             } else {
                 $('#is-processed-group').hide();
@@ -439,6 +451,7 @@
 
         // Toggle ingredients section
         $('#is_processed').change(function() {
+            console.log('Is processed changed to:', $(this).is(':checked'));
             if ($(this).is(':checked')) {
                 $('#ingredients-section').show();
                 // Aktifkan validasi ingredients ketika terlihat
@@ -463,17 +476,26 @@
         // Add ingredient row
         $('#add-ingredient').click(function() {
             var index = $('.ingredient-row').length;
+            var centralProductsOptions = '';
+
+            // Generate options untuk central products
+            @foreach($centralProducts as $centralProduct)
+                centralProductsOptions += '<option value="{{ $centralProduct->id }}">{{ $centralProduct->name }} ({{ $centralProduct->baseUnit->name }})</option>';
+            @endforeach
+
+            var unitsOptions = '';
+            // Generate options untuk units
+            @foreach($units as $unit)
+                unitsOptions += '<option value="{{ $unit->id }}">{{ $unit->name }}</option>';
+            @endforeach
+
             var newRow = `
                 <div class="row mb-3 ingredient-row align-items-center">
                     <div class="col-md-5">
                         <label class="form-label d-block d-md-none">Bahan</label>
                         <select class="form-select select2-new ingredient-select" name="ingredients[${index}][ingredient_id]" ${$('#is_processed').is(':checked') ? 'required' : ''}>
                             <option value="">Pilih Bahan</option>
-                            @foreach($centralProducts as $centralProduct)
-                                <option value="{{ $centralProduct->id }}">
-                                    {{ $centralProduct->name }} ({{ $centralProduct->baseUnit->name }})
-                                </option>
-                            @endforeach
+                            ${centralProductsOptions}
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -484,9 +506,7 @@
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Satuan</label>
                         <select class="form-select ingredient-unit" name="ingredients[${index}][unit_id]" ${$('#is_processed').is(':checked') ? 'required' : ''}>
-                            @foreach($units as $unit)
-                                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                            @endforeach
+                            ${unitsOptions}
                         </select>
                     </div>
                     <div class="col-md-1">
@@ -498,6 +518,8 @@
                 </div>
             `;
             $('#ingredients-container').append(newRow);
+
+            // Initialize Select2 untuk element baru
             $('.select2-new').select2({
                 theme: "bootstrap-5",
                 width: '100%'
@@ -513,19 +535,20 @@
         // Add unit row
         $('#add-unit').click(function() {
             var index = $('.unit-row').length;
-            var unitOptions = '';
 
-            // Dapatkan opsi unit dari select unit pertama jika ada
-            if ($('.unit-row:first select').length) {
-                unitOptions = $('.unit-row:first select').html();
-            }
+            var unitsOptions = '';
+            // Generate options untuk units
+            @foreach($units as $unit)
+                unitsOptions += '<option value="{{ $unit->id }}">{{ $unit->name }}</option>';
+            @endforeach
 
             var newRow = `
                 <div class="row mb-3 unit-row align-items-center">
                     <div class="col-md-3">
                         <label class="form-label d-block d-md-none">Satuan</label>
                         <select class="form-select select2-new" name="additional_units[${index}][unit_id]">
-                            ${unitOptions}
+                            <option value="">Pilih Satuan</option>
+                            ${unitsOptions}
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -563,6 +586,8 @@
                 </div>
             `;
             $('#additional-units').append(newRow);
+
+            // Initialize Select2 untuk element baru
             $('.select2-new').select2({
                 theme: "bootstrap-5",
                 width: '100%'
@@ -591,6 +616,8 @@
 
         // Form submission - ensure hidden fields are updated and validate ingredients
         $('form').on('submit', function(e) {
+            console.log('Form submission started');
+
             // Update hidden money fields
             $('.money-format').each(function() {
                 var value = $(this).val().replace(/\./g, '');
@@ -611,64 +638,140 @@
             // Hapus pemisah ribuan sebelum dikirim ke server
             $('#min_stock').val(minStock.replace(/\./g, ''));
 
+            // Debug: Log form data
+            console.log('Store source:', $('#store_source').val());
+            console.log('Is processed:', $('#is_processed').is(':checked'));
+
             // Validate ingredients if product is processed
             if ($('#is_processed').is(':checked')) {
+                console.log('Validating ingredients...');
                 var isValid = true;
                 var firstInvalidField = null;
+                var validIngredientsCount = 0;
 
-                $('.ingredient-row').each(function() {
+                $('.ingredient-row').each(function(index) {
                     const ingredientSelect = $(this).find('.ingredient-select');
                     const quantityInput = $(this).find('.ingredient-quantity');
+                    const unitSelect = $(this).find('.ingredient-unit');
 
-                    if (!ingredientSelect.val()) {
-                        isValid = false;
-                        ingredientSelect.addClass('is-invalid');
-                        if (!firstInvalidField) firstInvalidField = ingredientSelect;
-                    } else {
-                        ingredientSelect.removeClass('is-invalid');
-                    }
+                    console.log(`Ingredient ${index}:`, {
+                        ingredient_id: ingredientSelect.val(),
+                        quantity: quantityInput.val(),
+                        unit_id: unitSelect.val()
+                    });
 
-                    if (!quantityInput.val() || parseFloat(quantityInput.val()) <= 0) {
-                        isValid = false;
-                        quantityInput.addClass('is-invalid');
-                        if (!firstInvalidField) firstInvalidField = quantityInput;
-                    } else {
-                        quantityInput.removeClass('is-invalid');
+                    // Reset validation state
+                    ingredientSelect.removeClass('is-invalid');
+                    quantityInput.removeClass('is-invalid');
+                    unitSelect.removeClass('is-invalid');
+
+                    // Check if this row has any data
+                    var hasAnyData = ingredientSelect.val() || quantityInput.val() || unitSelect.val();
+
+                    if (hasAnyData) {
+                        // If row has data, validate all fields
+                        if (!ingredientSelect.val()) {
+                            isValid = false;
+                            ingredientSelect.addClass('is-invalid');
+                            if (!firstInvalidField) firstInvalidField = ingredientSelect;
+                        }
+
+                        if (!quantityInput.val() || parseFloat(quantityInput.val()) <= 0) {
+                            isValid = false;
+                            quantityInput.addClass('is-invalid');
+                            if (!firstInvalidField) firstInvalidField = quantityInput;
+                        }
+
+                        if (!unitSelect.val()) {
+                            isValid = false;
+                            unitSelect.addClass('is-invalid');
+                            if (!firstInvalidField) firstInvalidField = unitSelect;
+                        }
+
+                        // Count valid ingredients
+                        if (ingredientSelect.val() && quantityInput.val() && unitSelect.val()) {
+                            validIngredientsCount++;
+                        }
                     }
                 });
 
+                console.log('Valid ingredients count:', validIngredientsCount);
+
+                // Processed product must have at least 1 valid ingredient
+                if (validIngredientsCount === 0) {
+                    isValid = false;
+                    console.log('No valid ingredients found for processed product');
+                }
+
                 if (!isValid) {
                     e.preventDefault();
+                    console.log('Form validation failed');
 
-                    // Tampilkan pesan error
-                    if (!$('#ingredient-error-message').length) {
-                        $('#ingredients-container').prepend(
-                            '<div id="ingredient-error-message" class="alert alert-danger mb-3">' +
-                            'Harap lengkapi data bahan untuk produk olahan. Pilih bahan dan masukkan jumlah yang valid.' +
-                            '</div>'
-                        );
-                    }
+                    // Remove existing error message
+                    $('#ingredient-error-message').remove();
 
-                    // Fokus ke field yang invalid
+                    // Show error message
+                    var errorMessage = validIngredientsCount === 0 ?
+                        'Produk olahan harus memiliki minimal 1 bahan yang lengkap. Pilih bahan, masukkan jumlah, dan pilih satuan.' :
+                        'Harap lengkapi data bahan yang belum lengkap. Semua field bahan harus diisi.';
+
+                    $('#ingredients-container').prepend(
+                        '<div id="ingredient-error-message" class="alert alert-danger mb-3">' +
+                        '<i class="fas fa-exclamation-triangle me-2"></i>' + errorMessage +
+                        '</div>'
+                    );
+
+                    // Focus to first invalid field
                     if (firstInvalidField) {
                         $('html, body').animate({
                             scrollTop: firstInvalidField.offset().top - 100
                         }, 200);
 
-                        // Untuk select2, gunakan select2 focus
-                        if (firstInvalidField.hasClass('select2')) {
-                            firstInvalidField.select2('focus');
-                        } else {
-                            firstInvalidField.focus();
+                        setTimeout(function() {
+                            if (firstInvalidField.hasClass('select2')) {
+                                firstInvalidField.select2('focus');
+                            } else {
+                                firstInvalidField.focus();
+                            }
+                        }, 300);
+                    } else if (validIngredientsCount === 0) {
+                        // If no valid ingredients, focus on first ingredient select
+                        var firstIngredientSelect = $('.ingredient-select').first();
+                        if (firstIngredientSelect.length) {
+                            $('html, body').animate({
+                                scrollTop: firstIngredientSelect.offset().top - 100
+                            }, 200);
+                            setTimeout(function() {
+                                firstIngredientSelect.select2('focus');
+                            }, 300);
                         }
                     }
 
                     return false;
                 } else {
+                    // Remove error message if validation passes
                     $('#ingredient-error-message').remove();
+                    console.log('Ingredients validation passed');
                 }
+            } else {
+                // If not processed product, remove any ingredient error messages
+                $('#ingredient-error-message').remove();
+                $('.ingredient-select, .ingredient-quantity, .ingredient-unit').removeClass('is-invalid');
+                console.log('Not a processed product, skipping ingredient validation');
             }
+
+            console.log('Form validation passed, submitting form...');
+            return true;
         });
+
+        // Initialize form state on page load
+        console.log('Initializing form state...');
+        console.log('Initial store source:', $('#store_source').val());
+        console.log('Initial is processed:', $('#is_processed').is(':checked'));
+
+        // Trigger change events to set initial state
+        $('#store_source').trigger('change');
+        $('#is_processed').trigger('change');
     });
 </script>
 @endsection

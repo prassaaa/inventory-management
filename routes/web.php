@@ -53,20 +53,19 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::group(['middleware' => ['permission:view products']], function () {
-        // 1. Definisikan route khusus trashed sebelum resource route
-        Route::get('products/trashed', [ProductController::class, 'trashed'])->name('products.trashed');
-        Route::patch('products/restore/{id}', [ProductController::class, 'restore'])->name('products.restore');
-        Route::delete('products/force-delete/{id}', [ProductController::class, 'forceDelete'])->name('products.force-delete');
+    // PENTING: Route khusus HARUS di atas resource route
+    Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
+    Route::get('products/import/template', [ProductController::class, 'importTemplate'])->name('products.import.template');
+    Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
+    Route::get('products/trashed', [ProductController::class, 'trashed'])->name('products.trashed');
+    Route::get('products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
 
-        // 2. Kemudian definisikan resource route
-        Route::resource('products', ProductController::class);
+    Route::patch('products/restore/{id}', [ProductController::class, 'restore'])->name('products.restore');
+    Route::delete('products/force-delete/{id}', [ProductController::class, 'forceDelete'])->name('products.force-delete');
 
-        // 3. Route lainnya
-        Route::get('products/import/template', [ProductController::class, 'importTemplate'])->name('products.import.template');
-        Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
-        Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
-        Route::get('/products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
-    });
+    // Resource route TERAKHIR
+    Route::resource('products', ProductController::class);
+});
 
     Route::group(['middleware' => ['permission:view suppliers']], function () {
         Route::resource('suppliers', SupplierController::class);
