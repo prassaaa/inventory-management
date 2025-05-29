@@ -69,8 +69,10 @@
                             <th>Kategori</th>
                             <th>Harga Beli</th>
                             <th>Harga Jual</th>
+                            @if(!auth()->user()->store_id)
                             <th>Stok</th>
                             <th>Sumber</th>
+                            @endif
                             @if(request('source') == 'store')
                             <th>Jenis</th>
                             @endif
@@ -79,79 +81,81 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($products as $product)
-                        <tr>
-                            <td><span class="fw-medium">{{ $product->code }}</span></td>
-                            <td>{{ $product->name }}</td>
-                            <td>
-                                <span class="badge bg-primary-light text-primary rounded-pill px-2">
-                                    {{ $product->category->name }}
-                                </span>
-                            </td>
-                            <td>Rp {{ number_format($product->purchase_price, 0, ',', '.') }}</td>
-                            <td>Rp {{ number_format($product->selling_price, 0, ',', '.') }}</td>
-                            <td>
-                                @php
-                                    $wareStock = $product->stockWarehouses->first();
-                                    $stockQty = $wareStock ? floatval($wareStock->quantity) : 0;
-                                    // Format angka untuk menampilkan nilai bulat jika angka desimal adalah 0
-                                    $formattedStock = (floor($stockQty) == $stockQty) ? number_format($stockQty, 0, ',', '.') : number_format($stockQty, 2, ',', '.');
-                                @endphp
-                                <div class="d-flex align-items-center">
-                                    {{ $formattedStock }} {{ $product->baseUnit->name }}
-                                    @if (!$wareStock || ($wareStock && $stockQty < floatval($product->min_stock)))
-                                        <span class="badge bg-danger-light text-danger ms-2">Stok Rendah</span>
-                                    @else
-                                        <span class="badge bg-success-light text-success ms-2">Tersedia</span>
-                                    @endif
-                                </div>
-                            </td>
-                            <td>
-                                <span class="badge bg-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}-light text-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}">
-                                    {{ $product->store_source == 'pusat' ? 'Pusat' : 'Semua Store' }}
-                                </span>
-                            </td>
-                            @if(request('source') == 'store')
-                            <td>
-                                @if($product->is_processed)
-                                <span class="badge bg-warning-light text-warning">Olahan</span>
+                    @foreach($products as $product)
+                    <tr>
+                        <td><span class="fw-medium">{{ $product->code }}</span></td>
+                        <td>{{ $product->name }}</td>
+                        <td>
+                            <span class="badge bg-primary-light text-primary rounded-pill px-2">
+                                {{ $product->category->name }}
+                            </span>
+                        </td>
+                        <td>Rp {{ number_format($product->purchase_price, 0, ',', '.') }}</td>
+                        <td>Rp {{ number_format($product->selling_price, 0, ',', '.') }}</td>
+                        @if(!auth()->user()->store_id)
+                        <td>
+                            @php
+                                $wareStock = $product->stockWarehouses->first();
+                                $stockQty = $wareStock ? floatval($wareStock->quantity) : 0;
+                                // Format angka untuk menampilkan nilai bulat jika angka desimal adalah 0
+                                $formattedStock = (floor($stockQty) == $stockQty) ? number_format($stockQty, 0, ',', '.') : number_format($stockQty, 2, ',', '.');
+                            @endphp
+                            <div class="d-flex align-items-center">
+                                {{ $formattedStock }} {{ $product->baseUnit->name }}
+                                @if (!$wareStock || ($wareStock && $stockQty < floatval($product->min_stock)))
+                                    <span class="badge bg-danger-light text-danger ms-2">Stok Rendah</span>
                                 @else
-                                <span class="badge bg-secondary-light text-secondary">Regular</span>
+                                    <span class="badge bg-success-light text-success ms-2">Tersedia</span>
                                 @endif
-                            </td>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}-light text-{{ $product->store_source == 'pusat' ? 'primary' : 'info' }}">
+                                {{ $product->store_source == 'pusat' ? 'Pusat' : 'Semua Store' }}
+                            </span>
+                        </td>
+                        @endif
+                        @if(request('source') == 'store')
+                        <td>
+                            @if($product->is_processed)
+                            <span class="badge bg-warning-light text-warning">Olahan</span>
+                            @else
+                            <span class="badge bg-secondary-light text-secondary">Regular</span>
                             @endif
-                            <td>
-                                <span class="badge {{ $product->is_active ? 'bg-success-light text-success' : 'bg-danger-light text-danger' }} rounded-pill px-2">
-                                    {{ $product->is_active ? 'Aktif' : 'Nonaktif' }}
-                                </span>
-                            </td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <a href="{{ route('products.show', $product) }}" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Lihat Detail">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    @can('edit products')
-                                    <a href="{{ route('products.edit', $product) }}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Edit">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    @endcan
+                        </td>
+                        @endif
+                        <td>
+                            <span class="badge {{ $product->is_active ? 'bg-success-light text-success' : 'bg-danger-light text-danger' }} rounded-pill px-2">
+                                {{ $product->is_active ? 'Aktif' : 'Nonaktif' }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{{ route('products.show', $product) }}" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Lihat Detail">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                @can('edit products')
+                                <a href="{{ route('products.edit', $product) }}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                @endcan
 
-                                    @can('delete products')
-                                    <a href="javascript:void(0)" class="btn btn-sm btn-outline-danger"
-                                       data-bs-toggle="tooltip" title="Hapus"
-                                       onclick="showDeleteModal('{{ $product->id }}', '{{ $product->name }}')">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                    <form id="delete-form-{{ $product->id }}" action="{{ route('products.destroy', $product) }}" method="POST" class="d-none">
-                                        @csrf
-                                        @method('DELETE')
-                                    </form>
-                                    @endcan
-                                </div>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
+                                @can('delete products')
+                                <a href="javascript:void(0)" class="btn btn-sm btn-outline-danger"
+                                data-bs-toggle="tooltip" title="Hapus"
+                                onclick="showDeleteModal('{{ $product->id }}', '{{ $product->name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                <form id="delete-form-{{ $product->id }}" action="{{ route('products.destroy', $product) }}" method="POST" class="d-none">
+                                    @csrf
+                                    @method('DELETE')
+                                </form>
+                                @endcan
+                            </div>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
                 </table>
             </div>
         </div>
