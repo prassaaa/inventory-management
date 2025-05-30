@@ -24,44 +24,29 @@ Telp: {{ $sale->store->phone }}
 
 ==============================
 
-No: {{ $sale->invoice_number }}
-Tgl: {{ $sale->date->format('d/m/Y') }}
-Jam: {{ $sale->date->format('H:i') }}
+{{ $sale->dining_option_text }}
 Kasir: {{ $sale->creator->name }}
-@if($sale->customer_name)
-Cust: {{ $sale->customer_name }}
-@endif
-Bayar: {{ ucfirst($sale->payment_type) }}
+Waktu: {{ $sale->date->format('Y-m-d H:i') }}
 
+Barang              Jmlh    Juml
 ==============================
-
-Qty Item           Harga
-------------------------------
 @foreach($sale->saleDetails as $detail)
-{{ str_pad(intval($detail->quantity), 2, ' ', STR_PAD_LEFT) }} {{ str_pad(substr($detail->product->name, 0, 14), 14, ' ', STR_PAD_RIGHT) }} {{ str_pad(number_format($detail->subtotal, 0, ',', '.'), 8, ' ', STR_PAD_LEFT) }}
+{{ str_pad(substr($detail->product->name, 0, 14), 15, ' ', STR_PAD_RIGHT) }} {{ str_pad(intval($detail->quantity), 3, ' ', STR_PAD_LEFT) }} {{ str_pad('Rp ' . number_format($detail->subtotal, 0, ',', '.'), 12, ' ', STR_PAD_LEFT) }}
 @endforeach
-
-------------------------------
-
-Sub {{ str_pad(number_format($sale->total_amount + $sale->discount - $sale->tax, 0, ',', '.'), 19, ' ', STR_PAD_LEFT) }}
-@if($sale->discount > 0)
-Dis {{ str_pad(number_format($sale->discount, 0, ',', '.'), 19, ' ', STR_PAD_LEFT) }}
-@endif
-@if($sale->tax > 0)
-Tax {{ str_pad(number_format($sale->tax, 0, ',', '.'), 19, ' ', STR_PAD_LEFT) }}
-@endif
-------------------------------
-
-TOTAL {{ str_pad(number_format($sale->total_amount, 0, ',', '.'), 18, ' ', STR_PAD_LEFT) }}
-
-Tunai {{ str_pad(number_format($sale->total_payment, 0, ',', '.'), 18, ' ', STR_PAD_LEFT) }}
-Kmbl  {{ str_pad(number_format($sale->change, 0, ',', '.'), 18, ' ', STR_PAD_LEFT) }}
-
 ==============================
 
+Item: {{ $sale->saleDetails->count() }}    Subtotal: {{ str_pad('Rp ' . number_format($sale->total_amount + $sale->discount - $sale->tax, 0, ',', '.'), 15, ' ', STR_PAD_LEFT) }}
+Jmlh: {{ $sale->saleDetails->sum('quantity') }}
+==============================
+Total:      {{ str_pad('Rp ' . number_format($sale->total_amount, 0, ',', '.'), 15, ' ', STR_PAD_LEFT) }}
+==============================
+
+Kata sandi wifi : Kiagenggiring2
 Terima Kasih
-Simpan struk sebagai bukti
-pembayaran yang sah
+Silahkan datang lagi!
+
+Didukung oleh WnO POS
+www.wnopos.com
     </div>
 
     <script>
@@ -94,11 +79,15 @@ pembayaran yang sah
                     for (var i = 0; i < lines.length; i++) {
                         var line = lines[i].trim();
 
-                        // Case 1: Always center - Store information, separators, and thank you message
+                        // Case 1: Always center - Store information, separators, and footer
                         if (i <= 3 || // Store name, type, address, phone
                             line.includes('===============') ||
                             line.includes('--------------') ||
-                            i >= lines.length - 3 || // Thank you message
+                            line.includes('Kata sandi wifi') ||
+                            line.includes('Terima Kasih') ||
+                            line.includes('Silahkan datang lagi') ||
+                            line.includes('Didukung oleh') ||
+                            line.includes('www.wnopos.com') ||
                             line === '') {
                             // For centered content, add padding if needed to ensure text is properly centered
                             if (line.length < maxChars) {
@@ -108,10 +97,20 @@ pembayaran yang sah
                             printData += centerAlign + line + lineFeed;
                         }
                         // Case 2: Column headers - also centered
-                        else if (line.includes('Qty Item') && line.includes('Harga')) {
-                            printData += centerAlign + line + lineFeed;
+                        else if ((line.includes('Barang') && line.includes('Jmlh') && line.includes('Juml')) ||
+                                 (line.includes('Item:') && line.includes('Subtotal:')) ||
+                                 (line.includes('Jmlh:')) ||
+                                 (line.includes('Total:'))) {
+                            printData += leftAlign + line + lineFeed;
                         }
-                        // Case 3: Everything else - left aligned
+                        // Case 3: Dining option and staff info - left aligned but prominent
+                        else if (line.includes('Makan di Tempat') ||
+                                 line.includes('Dibawa Pulang') ||
+                                 line.includes('Kasir:') ||
+                                 line.includes('Waktu:')) {
+                            printData += leftAlign + line + lineFeed;
+                        }
+                        // Case 4: Everything else - left aligned
                         else {
                             printData += leftAlign + line + lineFeed;
                         }

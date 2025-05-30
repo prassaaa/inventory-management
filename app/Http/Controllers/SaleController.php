@@ -19,14 +19,33 @@ use PDF;
 class SaleController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource with proper filtering.
      */
     public function index()
     {
-        $sales = Sale::with(['store', 'creator'])
-            ->where('store_id', Auth::user()->store_id)
-            ->orderBy('date', 'desc')
-            ->get();
+        $user = Auth::user();
+
+        // Query dasar
+        $query = Sale::with(['store', 'creator']);
+
+        // Filter berdasarkan role dan store_id
+        if ($user->hasRole(['admin_back_office', 'admin_gudang', 'owner'])) {
+            // Role PUSAT bisa lihat semua penjualan dari semua toko
+            // Tidak perlu filter tambahan
+        } elseif ($user->hasRole(['admin_store', 'kasir'])) {
+            // Role CABANG hanya bisa lihat penjualan toko mereka
+            if ($user->store_id) {
+                $query->where('store_id', $user->store_id);
+            } else {
+                // Jika tidak ada store_id, kembalikan collection kosong
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            // Role lain tidak bisa melihat penjualan
+            $query->whereRaw('1 = 0');
+        }
+
+        $sales = $query->orderBy('date', 'desc')->get();
 
         return view('sales.index', compact('sales'));
     }
@@ -53,14 +72,173 @@ class SaleController extends Controller
      */
     public function show(Sale $sale)
     {
-        // Check if user has access to this sale (same store)
-        if (Auth::user()->store_id !== $sale->store_id && !Auth::user()->hasRole('owner')) {
-            abort(403, 'Unauthorized action.');
+        // Check if user has access to this sale
+        if (!$this->canUserViewSale($sale)) {
+            abort(403, 'Anda tidak memiliki akses untuk melihat penjualan ini.');
         }
 
         $sale->load(['store', 'creator', 'saleDetails.product', 'saleDetails.unit']);
 
         return view('sales.show', compact('sale'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(Sale $sale)
+    {
+        // Check permission
+        if (!$this->canUserAccessSale($sale)) {
+            abort(403, 'Anda tidak memiliki akses untuk mengedit penjualan ini.');
+        }
+
+        // Load necessary relationships
+        $sale->load(['store', 'creator', 'saleDetails.product.baseUnit', 'saleDetails.unit']);
+
+        // Get products for dropdown
+        $products = Product::with(['baseUnit', 'category'])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        // Get units for dropdown
+        $units = Unit::orderBy('name')->get();
+
+        return view('sales.edit', compact('sale', 'products', 'units'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, Sale $sale)
+    {
+        // Check permission
+        if (!$this->canUserAccessSale($sale)) {
+            abort(403, 'Anda tidak memiliki akses untuk mengedit penjualan ini.');
+        }
+
+        $validated = $request->validate([
+            'customer_name' => 'nullable|string|max:255',
+            'payment_type' => 'required|in:tunai,non_tunai',
+            'dining_option' => 'required|in:makan_di_tempat,dibawa_pulang',
+            'discount' => 'required|numeric|min:0',
+            'tax_enabled' => 'required|boolean',
+            'tax' => 'required|numeric|min:0',
+            'total_payment' => 'required|numeric|min:0',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.unit_id' => 'required|exists:units,id',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.price' => 'required|numeric|min:0',
+            'items.*.discount' => 'required|numeric|min:0',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Hitung ulang total
+            $subtotal = 0;
+            foreach ($validated['items'] as $item) {
+                $subtotal += ($item['quantity'] * $item['price']) - $item['discount'];
+            }
+
+            $totalAmount = $subtotal - $validated['discount'] + $validated['tax'];
+            $change = $validated['total_payment'] - $totalAmount;
+
+            // Update sale
+            $sale->update([
+                'customer_name' => $validated['customer_name'],
+                'payment_type' => $validated['payment_type'],
+                'dining_option' => $validated['dining_option'],
+                'discount' => $validated['discount'],
+                'tax_enabled' => $validated['tax_enabled'],
+                'tax' => $validated['tax'],
+                'total_amount' => $totalAmount,
+                'total_payment' => $validated['total_payment'],
+                'change' => $change,
+                'updated_by' => Auth::id(),
+            ]);
+
+            // Kembalikan stok dari detail lama (reverse stock)
+            foreach ($sale->saleDetails as $oldDetail) {
+                $this->reverseStock($oldDetail);
+            }
+
+            // Hapus detail lama
+            $sale->saleDetails()->delete();
+
+            // Buat detail baru dan kurangi stok
+            foreach ($validated['items'] as $item) {
+                $saleDetail = SaleDetail::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $item['product_id'],
+                    'unit_id' => $item['unit_id'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                    'discount' => $item['discount'],
+                    'subtotal' => ($item['quantity'] * $item['price']) - $item['discount'],
+                ]);
+
+                // Kurangi stok baru
+                $this->reduceStock($saleDetail, $sale->store_id);
+            }
+
+            DB::commit();
+
+            return redirect()->route('sales.index')
+                ->with('success', 'Penjualan berhasil diupdate.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Error updating sale', [
+                'sale_id' => $sale->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->withErrors(['error' => 'Gagal mengupdate penjualan: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(Sale $sale)
+    {
+        // Check permission
+        if (!$this->canUserAccessSale($sale)) {
+            abort(403, 'Anda tidak memiliki akses untuk menghapus penjualan ini.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Kembalikan stok
+            foreach ($sale->saleDetails as $detail) {
+                $this->reverseStock($detail);
+            }
+
+            // Hapus detail penjualan
+            $sale->saleDetails()->delete();
+
+            // Hapus penjualan
+            $sale->delete();
+
+            DB::commit();
+
+            return redirect()->route('sales.index')
+                ->with('success', 'Penjualan berhasil dihapus.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Error deleting sale', [
+                'sale_id' => $sale->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->withErrors(['error' => 'Gagal menghapus penjualan: ' . $e->getMessage()]);
+        }
     }
 
     /**
@@ -134,6 +312,7 @@ class SaleController extends Controller
         $validated = $request->validate([
             'sale.store_id' => 'required|exists:stores,id',
             'sale.payment_type' => 'required|in:tunai,non_tunai',
+            'sale.dining_option' => 'required|in:makan_di_tempat,dibawa_pulang',
             'sale.customer_name' => 'nullable|string|max:255',
             'sale.discount' => 'required|numeric|min:0',
             'sale.tax_enabled' => 'required|boolean',
@@ -179,6 +358,7 @@ class SaleController extends Controller
                 'customer_name' => $saleData['customer_name'],
                 'total_amount' => $saleData['total_amount'],
                 'payment_type' => $saleData['payment_type'],
+                'dining_option' => $saleData['dining_option'],
                 'discount' => $saleData['discount'],
                 'tax' => $saleData['tax'],
                 'tax_enabled' => $saleData['tax_enabled'],
@@ -529,9 +709,6 @@ class SaleController extends Controller
 
     /**
      * Generate sale receipt optimized for RAWBT Printer
-     *
-     * @param Sale $sale
-     * @return \Illuminate\Http\Response
      */
     public function rawbtReceipt(Sale $sale)
     {
@@ -539,5 +716,188 @@ class SaleController extends Controller
 
         // Render receipt view khusus untuk RAWBT printer
         return view('sales.receipt-rawbt', compact('sale'));
+    }
+
+    /**
+     * Check if user can view the sale (for show method)
+     */
+    private function canUserViewSale(Sale $sale)
+    {
+        $user = Auth::user();
+
+        // Role PUSAT bisa akses semua
+        if ($user->hasRole(['admin_back_office', 'admin_gudang', 'owner'])) {
+            return true;
+        }
+
+        // Role CABANG hanya bisa akses penjualan toko mereka
+        if ($user->hasRole(['admin_store', 'kasir'])) {
+            return $user->store_id === $sale->store_id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user can access the sale (based on role and store) for edit/delete
+     */
+    private function canUserAccessSale(Sale $sale)
+    {
+        $user = Auth::user();
+
+        // Role PUSAT bisa akses semua
+        if ($user->hasRole(['admin_back_office', 'admin_gudang', 'owner'])) {
+            return true;
+        }
+
+        // Role CABANG (admin_store) hanya bisa akses penjualan toko mereka
+        if ($user->hasRole(['admin_store'])) {
+            return $user->store_id === $sale->store_id;
+        }
+
+        // KASIR tidak bisa edit/hapus
+        if ($user->hasRole(['kasir'])) {
+            return false;
+        }
+
+        return false;
+    }
+
+    /**
+     * Reverse stock when updating/deleting sale
+     */
+    private function reverseStock(SaleDetail $detail)
+    {
+        $product = Product::find($detail->product_id);
+
+        if ($product->is_processed) {
+            // Untuk produk olahan, kembalikan stok bahan
+            $ingredients = DB::table('product_ingredients')
+                ->where('product_id', $product->id)
+                ->get();
+
+            foreach ($ingredients as $ingredient) {
+                $ingredientProduct = Product::find($ingredient->ingredient_id);
+                $storeId = $detail->sale->store_id;
+
+                // Hitung jumlah bahan yang dikembalikan
+                $ingredientQuantity = $ingredient->quantity * $detail->quantity;
+
+                // Konversi satuan jika perlu
+                $stockStore = StockStore::where([
+                    'store_id' => $storeId,
+                    'product_id' => $ingredientProduct->id
+                ])->first();
+
+                if ($stockStore) {
+                    $quantityToAdd = $ingredientQuantity;
+
+                    if ($ingredient->unit_id !== $stockStore->unit_id) {
+                        $quantityToAdd = UnitConverter::convert(
+                            $ingredientQuantity,
+                            $ingredient->unit_id,
+                            $stockStore->unit_id
+                        );
+                    }
+
+                    if ($quantityToAdd !== null) {
+                        $stockStore->increment('quantity', $quantityToAdd);
+                    }
+                }
+            }
+        } else {
+            // Untuk produk reguler, kembalikan stok langsung
+            $baseQuantity = $detail->quantity;
+
+            if ($detail->unit_id != $product->base_unit_id) {
+                $baseQuantity = UnitConverter::convert(
+                    $detail->quantity,
+                    $detail->unit_id,
+                    $product->base_unit_id
+                );
+            }
+
+            if ($baseQuantity !== null) {
+                $stockStore = StockStore::where([
+                    'store_id' => $detail->sale->store_id,
+                    'product_id' => $product->id
+                ])->first();
+
+                if ($stockStore) {
+                    $stockStore->increment('quantity', $baseQuantity);
+                }
+            }
+        }
+    }
+
+    /**
+     * Reduce stock when creating new sale detail
+     */
+    private function reduceStock(SaleDetail $detail, $storeId)
+    {
+        $product = Product::find($detail->product_id);
+
+        if ($product->is_processed) {
+            // Logic untuk produk olahan (sama seperti di processPos)
+            $ingredients = DB::table('product_ingredients')
+                ->where('product_id', $product->id)
+                ->get();
+
+            foreach ($ingredients as $ingredient) {
+                $ingredientProduct = Product::find($ingredient->ingredient_id);
+                $ingredientQuantity = $ingredient->quantity * $detail->quantity;
+
+                $stockStore = StockStore::where([
+                    'store_id' => $storeId,
+                    'product_id' => $ingredientProduct->id
+                ])->first();
+
+                if ($stockStore) {
+                    $quantityToReduce = $ingredientQuantity;
+
+                    if ($ingredient->unit_id !== $stockStore->unit_id) {
+                        $quantityToReduce = UnitConverter::convert(
+                            $ingredientQuantity,
+                            $ingredient->unit_id,
+                            $stockStore->unit_id
+                        );
+                    }
+
+                    if ($quantityToReduce !== null && $stockStore->quantity >= $quantityToReduce) {
+                        $stockStore->decrement('quantity', $quantityToReduce);
+                    } else {
+                        throw new \Exception("Stok bahan {$ingredientProduct->name} tidak mencukupi.");
+                    }
+                }
+            }
+        } else {
+            // Logic untuk produk reguler
+            $baseQuantity = $detail->quantity;
+
+            if ($detail->unit_id != $product->base_unit_id) {
+                $baseQuantity = UnitConverter::convert(
+                    $detail->quantity,
+                    $detail->unit_id,
+                    $product->base_unit_id
+                );
+            }
+
+            if ($baseQuantity !== null) {
+                $stockStore = StockStore::firstOrCreate(
+                    [
+                        'store_id' => $storeId,
+                        'product_id' => $product->id,
+                        'unit_id' => $product->base_unit_id
+                    ],
+                    ['quantity' => 0]
+                );
+
+                if ($stockStore->quantity >= $baseQuantity) {
+                    $stockStore->decrement('quantity', $baseQuantity);
+                } else {
+                    throw new \Exception("Stok produk {$product->name} tidak mencukupi.");
+                }
+            }
+        }
     }
 }

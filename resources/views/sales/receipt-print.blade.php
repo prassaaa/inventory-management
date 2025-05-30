@@ -101,6 +101,14 @@
             color: #555;
         }
 
+        /* Special styling for dining option */
+        .dining-option {
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 5px;
+            text-align: left;
+        }
+
         .items-table {
             width: 100%;
             border-collapse: collapse;
@@ -220,133 +228,83 @@
             <img src="{{ asset('img/logo.png') }}" alt="Logo" class="logo">
             -->
             <div class="store-name">{{ $sale->store->name }}</div>
-            <div class="store-tagline">Restoran & Kafe</div>
+            <div class="store-tagline">Cafe And Eatry</div>
             <div class="store-info">
                 {{ $sale->store->address }}<br>
-                Telp: {{ $sale->store->phone }}
-            </div>
-        </div>
-
-        <!-- Transaction Info -->
-        <div class="transaction-info">
-            <div class="row">
-                <span class="label">No. Invoice:</span>
-                <span>{{ $sale->invoice_number }}</span>
-            </div>
-            <div class="row">
-                <span class="label">Tanggal:</span>
-                <span>{{ $sale->date->format('d/m/Y') }}</span>
-            </div>
-            <div class="row">
-                <span class="label">Waktu:</span>
-                <span>{{ $sale->date->format('H:i') }}</span>
-            </div>
-            <div class="row">
-                <span class="label">Kasir:</span>
-                <span>{{ $sale->creator->name }}</span>
-            </div>
-            @if($sale->customer_name)
-            <div class="row">
-                <span class="label">Pelanggan:</span>
-                <span>{{ $sale->customer_name }}</span>
-            </div>
-            @endif
-            <div class="row">
-                <span class="label">Pembayaran:</span>
-                <span>{{ ucfirst($sale->payment_type) }}</span>
+                Kec. Kroya Cilacap
             </div>
         </div>
 
         <div class="divider-bold"></div>
 
-        <!-- Items Section -->
+        <!-- Dining Option - Following original format -->
+        <div class="dining-option">{{ $sale->dining_option_text }}</div>
+
+        <!-- Transaction Info -->
+        <div class="transaction-info">
+            <div class="row">
+                <span class="label">Staf:</span>
+                <span>{{ $sale->creator->name }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Waktu:</span>
+                <span>{{ $sale->date->format('Y-m-d H:i') }}</span>
+            </div>
+        </div>
+
+        <!-- Items Header -->
         <table class="items-table">
             <thead>
                 <tr>
-                    <th class="qty">Qty</th>
-                    <th>Item</th>
-                    <th class="price">Harga</th>
+                    <th>Barang</th>
+                    <th class="qty">Jmlh</th>
+                    <th class="price">Juml</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($sale->saleDetails as $detail)
                 <tr>
-                    <td class="qty">
-                        {{ intval($detail->quantity) }}<br>
-                        <span class="unit">{{ $detail->unit->name }}</span>
-                    </td>
                     <td>{{ $detail->product->name }}</td>
+                    <td class="qty">{{ intval($detail->quantity) }}</td>
                     <td class="price">Rp {{ number_format($detail->subtotal, 0, ',', '.') }}</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
 
-        <!-- Summary Section -->
+        <div class="divider-bold"></div>
+
+        <!-- Summary Section - Following original format -->
         <div class="summary">
-            <div class="divider"></div>
-
             <div class="row">
-                <span>Subtotal</span>
-                <span>Rp {{ number_format($sale->total_amount + $sale->discount - $sale->tax, 0, ',', '.') }}</span>
+                <span>Item: {{ $sale->saleDetails->count() }}</span>
+                <span>Subtotal: Rp {{ number_format($sale->total_amount + $sale->discount - $sale->tax, 0, ',', '.') }}</span>
+            </div>
+            <div class="row">
+                <span>Jmlh: {{ $sale->saleDetails->sum('quantity') }}</span>
+                <span></span>
             </div>
 
-            @if($sale->discount > 0)
-            <div class="row">
-                <span>Diskon</span>
-                <span>Rp {{ number_format($sale->discount, 0, ',', '.') }}</span>
-            </div>
-            @endif
-
-            @if($sale->tax > 0)
-            <div class="row">
-                <span>Pajak (10%)</span>
-                <span>Rp {{ number_format($sale->tax, 0, ',', '.') }}</span>
-            </div>
-            @endif
-
-            <div class="divider"></div>
+            <div class="divider-bold"></div>
 
             <div class="row total-row">
-                <span>TOTAL</span>
+                <span>Total:</span>
                 <span>Rp {{ number_format($sale->total_amount, 0, ',', '.') }}</span>
             </div>
 
-            <!-- Payment Details -->
-            <div class="payment-info">
-                <div class="row">
-                    <span>Tunai</span>
-                    <span>Rp {{ number_format($sale->total_payment, 0, ',', '.') }}</span>
-                </div>
-
-                <div class="row">
-                    <span>Kembali</span>
-                    <span>Rp {{ number_format($sale->change, 0, ',', '.') }}</span>
-                </div>
-            </div>
+            <div class="divider-bold"></div>
         </div>
 
         <!-- Footer Section -->
         <div class="footer">
-            <div class="barcode">
-                <!-- Placeholder for barcode, bisa diganti dengan QR code jika perlu -->
-                <svg width="200" height="40">
-                    <rect x="0" y="0" width="200" height="40" style="fill:none; stroke:none" />
-                    <text x="100" y="20" text-anchor="middle" style="font-size: 12px">{{ $sale->invoice_number }}</text>
-                </svg>
+            <p>Kata sandi wifi : Kiagenggiring2</p>
+            <p class="thank-you">Terima Kasih</p>
+            <p>Silahkan datang lagi!</p>
+
+            <div style="margin: 15px 0;">
+                <p>Didukung oleh WnO POS</p>
+                <p>www.wnopos.com</p>
             </div>
-
-            <p class="thank-you">Terima Kasih atas Kunjungan Anda</p>
-
-            <p>Simpan struk ini sebagai bukti pembayaran yang sah</p>
-            <p>Barang yang sudah dibeli tidak dapat ditukar kembali</p>
-
-            <!-- Optional social media / website info -->
-            <p>www.namatoko.com | @namatoko</p>
-
-            <!-- Optional small logo in footer
-            <img src="{{ asset('img/logo-small.png') }}" alt="Logo" class="footer-logo">
-            -->
         </div>
     </div>
 

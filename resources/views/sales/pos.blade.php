@@ -270,6 +270,15 @@
                             <div class="col-6 text-end fw-medium" id="change">0</div>
                         </div>
                         <div class="row mb-2">
+                            <div class="col-6 text-end">Pilihan Makan:</div>
+                            <div class="col-6">
+                                <select class="form-select form-select-sm" id="dining-option">
+                                    <option value="dibawa_pulang">Dibawa Pulang</option>
+                                    <option value="makan_di_tempat">Makan di Tempat</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
                             <div class="col-6 text-end">Nama Pelanggan:</div>
                             <div class="col-6">
                                 <input type="text" class="form-control form-control-sm" id="customer-name" placeholder="Opsional">
@@ -564,6 +573,7 @@
             const total = calculateTotal();
             const paidAmount = parseFloat($('#paid-amount').val()) || 0;
             const paymentType = $('#payment-type').val();
+            const diningOption = $('#dining-option').val();
             const customerName = $('#customer-name').val();
 
             if (paidAmount < total && paymentType === 'tunai') {
@@ -590,6 +600,7 @@
             const data = {
                 store_id: {{ Auth::user()->store_id ?? 1 }}, // Default ke 1 jika store_id tidak diatur
                 payment_type: paymentType,
+                dining_option: diningOption,
                 customer_name: customerName,
                 discount: discount,
                 tax_enabled: taxEnabled ? 1 : 0,
@@ -638,6 +649,7 @@
                         updateCartTable();
                         $('#discount').val(0);
                         $('#paid-amount').val(0);
+                        $('#dining-option').val('dibawa_pulang');
                         $('#customer-name').val('');
                         $('#tax-enabled').prop('checked', false);
                         taxEnabled = false;

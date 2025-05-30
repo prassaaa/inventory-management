@@ -150,13 +150,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('expense-categories/batch', [ExpenseCategoryController::class, 'batchStore'])->name('expense-categories.batch-store');
     });
 
-    // Sales (POS)
+    // Sales (POS) - UPDATED ROUTE
     Route::group(['middleware' => ['permission:view sales']], function () {
-        Route::resource('sales', SaleController::class)->except(['edit', 'update', 'destroy']);
+        Route::resource('sales', SaleController::class)->except(['create', 'store']);
         Route::get('sales/{sale}/receipt', [SaleController::class, 'receipt'])->name('sales.receipt');
         Route::get('sales/{sale}/rawbt-receipt', [SaleController::class, 'rawbtReceipt'])
-        ->name('sales.rawbt-receipt')
-        ->middleware('allow-rawbt');
+            ->name('sales.rawbt-receipt')
+            ->middleware('allow-rawbt');
     });
 
     Route::group(['middleware' => ['permission:create sales']], function () {
