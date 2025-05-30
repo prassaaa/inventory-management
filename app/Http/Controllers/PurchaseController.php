@@ -19,11 +19,31 @@ use PDF;
 class PurchaseController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource with proper filtering.
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
+
+        // Query dasar
         $query = Purchase::with(['supplier', 'creator']);
+
+        // Filter berdasarkan role dan store_id (jika ada)
+        if ($user->hasRole(['admin_back_office', 'admin_gudang', 'owner'])) {
+            // Role PUSAT bisa lihat semua pembelian
+            // Tidak perlu filter tambahan
+        } elseif ($user->hasRole(['admin_store'])) {
+            // Admin store hanya bisa lihat pembelian yang terkait dengan store mereka
+            if ($user->store_id) {
+                $query->where('store_id', $user->store_id);
+            } else {
+                // Jika tidak ada store_id, kembalikan collection kosong
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            // Role lain tidak bisa melihat pembelian
+            $query->whereRaw('1 = 0');
+        }
 
         // Filter by supplier if provided
         if ($request->has('supplier_id') && $request->supplier_id) {
@@ -128,20 +148,30 @@ class PurchaseController extends Controller
     }
 
     /**
-        * Display the specified resource.
-        */
+     * Display the specified resource.
+     */
     public function show(Purchase $purchase)
     {
+        // Check if user has access to this purchase
+        if (!$this->canUserViewPurchase($purchase)) {
+            abort(403, 'Anda tidak memiliki akses untuk melihat pembelian ini.');
+        }
+
         $purchase->load(['supplier', 'creator', 'purchaseDetails.product', 'purchaseDetails.unit', 'purchaseReturns']);
 
         return view('purchases.show', compact('purchase'));
     }
 
     /**
-        * Show the form for editing the specified resource.
-        */
+     * Show the form for editing the specified resource.
+     */
     public function edit(Purchase $purchase)
     {
+        // Check permission
+        if (!$this->canUserAccessPurchase($purchase)) {
+            abort(403, 'Anda tidak memiliki akses untuk mengedit pembelian ini.');
+        }
+
         // Only allow editing purchases with 'pending' status
         if ($purchase->status !== 'pending') {
             return redirect()->route('purchases.show', $purchase)
@@ -158,10 +188,15 @@ class PurchaseController extends Controller
     }
 
     /**
-        * Update the specified resource in storage.
-        */
+     * Update the specified resource in storage.
+     */
     public function update(Request $request, Purchase $purchase)
     {
+        // Check permission
+        if (!$this->canUserAccessPurchase($purchase)) {
+            abort(403, 'Anda tidak memiliki akses untuk mengedit pembelian ini.');
+        }
+
         // Only allow updating purchases with 'pending' status
         if ($purchase->status !== 'pending') {
             return redirect()->route('purchases.show', $purchase)
@@ -250,10 +285,15 @@ class PurchaseController extends Controller
     }
 
     /**
-        * Remove the specified resource from storage.
-        */
+     * Remove the specified resource from storage.
+     */
     public function destroy(Purchase $purchase)
     {
+        // Check permission
+        if (!$this->canUserAccessPurchase($purchase)) {
+            abort(403, 'Anda tidak memiliki akses untuk menghapus pembelian ini.');
+        }
+
         // Only allow deleting purchases with 'pending' status
         if ($purchase->status !== 'pending') {
             return redirect()->route('purchases.index')
@@ -288,6 +328,11 @@ class PurchaseController extends Controller
      */
     public function confirm(Purchase $purchase)
     {
+        // Check permission
+        if (!$this->canUserAccessPurchase($purchase)) {
+            abort(403, 'Anda tidak memiliki akses untuk mengkonfirmasi pembelian ini.');
+        }
+
         // Log debug info
         \Log::info('Confirm method called for purchase #' . $purchase->id . ' with status: ' . $purchase->status);
 
@@ -348,5 +393,45 @@ class PurchaseController extends Controller
         $pdf = PDF::loadView('purchases.receipt', compact('purchase'));
 
         return $pdf->stream('purchase_' . $purchase->invoice_number . '.pdf');
+    }
+
+    /**
+     * Check if user can view the purchase (for show method)
+     */
+    private function canUserViewPurchase(Purchase $purchase)
+    {
+        $user = Auth::user();
+
+        // Role PUSAT bisa akses semua
+        if ($user->hasRole(['admin_back_office', 'admin_gudang', 'owner'])) {
+            return true;
+        }
+
+        // Role CABANG (admin_store) hanya bisa akses pembelian toko mereka
+        if ($user->hasRole(['admin_store'])) {
+            return $user->store_id === $purchase->store_id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user can access the purchase (based on role) for edit/delete/confirm
+     */
+    private function canUserAccessPurchase(Purchase $purchase)
+    {
+        $user = Auth::user();
+
+        // Role PUSAT bisa akses semua
+        if ($user->hasRole(['admin_back_office', 'admin_gudang', 'owner'])) {
+            return true;
+        }
+
+        // Role CABANG (admin_store) hanya bisa akses pembelian toko mereka
+        if ($user->hasRole(['admin_store'])) {
+            return $user->store_id === $purchase->store_id;
+        }
+
+        return false;
     }
 }

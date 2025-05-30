@@ -18,6 +18,12 @@ class PurchaseDetail extends Model
         'subtotal'
     ];
 
+    protected $casts = [
+        'quantity' => 'decimal:2',
+        'price' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+    ];
+
     public function purchase()
     {
         return $this->belongsTo(Purchase::class);
@@ -44,5 +50,13 @@ class PurchaseDetail extends Model
     public function returnedQuantity()
     {
         return $this->purchaseReturnDetails()->sum('quantity');
+    }
+
+    /**
+     * Get available quantity that can still be returned
+     */
+    public function getAvailableQuantityAttribute()
+    {
+        return $this->quantity - $this->returnedQuantity();
     }
 }

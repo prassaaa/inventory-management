@@ -10,7 +10,7 @@ class PurchaseReturn extends Model
     use HasFactory;
 
     protected $fillable = ['purchase_id', 'date', 'total_amount', 'note', 'created_by', 'updated_by'];
-    
+
     protected $casts = [
         'date' => 'date',
     ];
