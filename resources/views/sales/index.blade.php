@@ -270,8 +270,8 @@ $(document).ready(function() {
         // Set modal content
         $('#invoice-to-delete').text(invoiceNumber);
 
-        // Set form action
-        var deleteUrl = "{{ route('sales.destroy', ':id') }}".replace(':id', saleId);
+        // Set form action - Fixed route building
+        var deleteUrl = '{{ url("/sales") }}/' + saleId;
         $('#delete-form').attr('action', deleteUrl);
 
         console.log('Delete URL:', deleteUrl);
