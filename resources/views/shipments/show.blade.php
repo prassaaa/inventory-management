@@ -125,7 +125,7 @@
                                             <td>{{ $index + 1 }}</td>
                                             <td>{{ $detail->product->name }}</td>
                                             <td>{{ $detail->unit->name }}</td>
-                                            <td>{{ $detail->quantity }}</td>
+                                            <td>{{ intval($detail->quantity) }}</td>
                                         </tr>
                                         @endforeach
                                     </tbody>
