@@ -58,25 +58,8 @@
         .text-end {
             text-align: right;
         }
-        .signature-section {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 50px;
-        }
-        .signature-box {
-            width: 200px;
+        .text-center {
             text-align: center;
-        }
-        .signature-line {
-            border-bottom: 1px solid #000;
-            margin-top: 50px;
-            margin-bottom: 5px;
-        }
-        .footer {
-            margin-top: 30px;
-            font-size: 10pt;
-            text-align: center;
-            color: #666;
         }
     </style>
 </head>
@@ -139,10 +122,10 @@
                 $total += $subtotal;
             @endphp
             <tr>
-                <td>{{ $index + 1 }}</td>
+                <td class="text-center">{{ $index + 1 }}</td>
                 <td>{{ $detail->product->name ?? 'N/A' }}</td>
-                <td>{{ $detail->unit->name ?? 'N/A' }}</td>
-                <td>{{ $detail->quantity ?? 0 }}</td>
+                <td class="text-center">{{ $detail->unit->name ?? 'N/A' }}</td>
+                <td class="text-center">{{ intval($detail->quantity) }}</td>
                 <td class="text-end">{{ number_format($price, 0, ',', '.') }}</td>
                 <td class="text-end">{{ number_format($subtotal, 0, ',', '.') }}</td>
                 <td></td>
@@ -185,27 +168,5 @@
         </div>
     </div>
 
-    <div class="signature-section">
-        <div class="signature-box">
-            <div class="signature-line"></div>
-            <div>Dibuat oleh</div>
-            <div>{{ $shipment->createdBy->name ?? 'N/A' }}</div>
-        </div>
-        <div class="signature-box">
-            <div class="signature-line"></div>
-            <div>Pengirim</div>
-            <div></div>
-        </div>
-        <div class="signature-box">
-            <div class="signature-line"></div>
-            <div>Penerima</div>
-            <div></div>
-        </div>
-    </div>
-
-    <div class="footer">
-        <p>Dokumen ini dicetak pada {{ now()->format('d/m/Y H:i') }} dan sah tanpa tanda tangan.</p>
-        <p>Halaman 1 dari 1</p>
-    </div>
 </body>
 </html>
