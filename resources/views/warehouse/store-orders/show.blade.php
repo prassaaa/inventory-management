@@ -146,7 +146,7 @@
     </div>
 
     <!-- Shipments -->
-    @if($storeOrder->shipments->isNotEmpty())
+    @if($storeOrder->shipments && $storeOrder->shipments->isNotEmpty())
     <div class="card shadow mb-4">
         <div class="card-header py-3">
             <h6 class="m-0 fw-bold text-primary">Pengiriman</h6>
@@ -166,7 +166,7 @@
                         @foreach($storeOrder->shipments as $shipment)
                             <tr>
                                 <td>{{ $shipment->shipment_number }}</td>
-                                <td>{{ $shipment->date->format('d/m/Y') }}</td>
+                                <td>{{ $shipment->date ? $shipment->date->format('d/m/Y') : 'N/A' }}</td>
                                 <td>
                                     @if($shipment->status == 'pending')
                                         <span class="badge bg-warning">Menunggu</span>
@@ -175,16 +175,20 @@
                                     @elseif($shipment->status == 'delivered')
                                         <span class="badge bg-success">Diterima</span>
                                     @else
-                                        <span class="badge bg-secondary">{{ ucfirst($shipment->status) }}</span>
+                                        <span class="badge bg-secondary">{{ ucfirst($shipment->status ?? 'Unknown') }}</span>
                                     @endif
                                 </td>
                                 <td>
                                     <a href="{{ route('shipments.show', $shipment->id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i> Detail
                                     </a>
-                                    <a href="{{ route('shipments.document', $shipment->id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
-                                        <i class="fas fa-file-alt"></i> Surat Jalan
-                                    </a>
+
+                                    {{-- Sembunyikan tombol Surat Jalan untuk admin_store --}}
+                                    @unless(Auth::user()->hasRole('admin_store'))
+                                        <a href="{{ route('shipments.document', $shipment->id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                            <i class="fas fa-file-alt"></i> Surat Jalan
+                                        </a>
+                                    @endunless
                                 </td>
                             </tr>
                         @endforeach
