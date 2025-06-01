@@ -72,31 +72,43 @@
         <div class="document-number">No. {{ $invoiceNumber }}</div>
     </div>
 
-    <div class="info-section">
-        <div class="info-row">
-            <div class="info-label">Tanggal Pengiriman:</div>
-            <div class="info-value">{{ $shipment->date ? $shipment->date->format('d/m/Y') : '-' }}</div>
-        </div>
-        <div class="info-row">
-            <div class="info-label">No. Pesanan:</div>
-            <div class="info-value">{{ $shipment->storeOrder->order_number ?? 'N/A' }}</div>
-        </div>
-    </div>
-
-    <div class="info-section">
-        <div class="info-row">
-            <div class="info-label">Dari:</div>
-            <div class="info-value">Gudang Pusat</div>
-        </div>
-        <div class="info-row">
-            <div class="info-label">Tujuan:</div>
-            <div class="info-value">
-                {{ $shipment->storeOrder->store->name ?? 'N/A' }}<br>
-                {{ $shipment->storeOrder->store->address ?? 'N/A' }}<br>
-                Telp: {{ $shipment->storeOrder->store->phone ?? 'N/A' }}
-            </div>
-        </div>
-    </div>
+    <!-- Menerapkan layout yang sama seperti surat jalan -->
+    <table style="width: 100%; margin-bottom: 20px; border: none;">
+        <tr>
+            <td style="width: 50%; border: none; vertical-align: top; padding: 0;">
+                <div style="margin-bottom: 5px;">
+                    <strong>Tanggal Pengiriman:</strong><br>
+                    <span>{{ $shipment->date ? $shipment->date->format('d/m/Y') : '-' }}</span>
+                </div>
+                <div style="margin-bottom: 5px;">
+                    <strong>No. Pesanan:</strong><br>
+                    <span>{{ $shipment->storeOrder->order_number ?? 'N/A' }}</span>
+                </div>
+            </td>
+            <td style="width: 50%; border: none; vertical-align: top; padding: 0;">
+                <table style="width: 100%; border: none;">
+                    <tr>
+                        <td style="width: 30%; border: none; padding: 0; vertical-align: top;">
+                            <div style="margin-bottom: 5px;">
+                                <strong>Dari:</strong><br>
+                                <span>Gudang Pusat</span>
+                            </div>
+                        </td>
+                        <td style="width: 70%; border: none; padding: 0; vertical-align: top;">
+                            <div style="margin-bottom: 5px;">
+                                <strong>Tujuan:</strong><br>
+                                <span>
+                                    {{ $shipment->storeOrder->store->name ?? 'N/A' }}<br>
+                                    {{ $shipment->storeOrder->store->address ?? 'N/A' }}<br>
+                                    Telp: {{ $shipment->storeOrder->store->phone ?? 'N/A' }}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 
     <table>
         <thead>
