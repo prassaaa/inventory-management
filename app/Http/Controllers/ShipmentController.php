@@ -174,6 +174,7 @@ class ShipmentController extends Controller
     {
         $shipment = Shipment::with([
                 'storeOrder.store',
+                'storeOrder.storeOrderDetails',
                 'shipmentDetails.product',
                 'shipmentDetails.unit',
                 'createdBy'
@@ -181,6 +182,37 @@ class ShipmentController extends Controller
             ->findOrFail($id);
 
         $pdf = PDF::loadView('shipments.document_raw', compact('shipment'));
+        return $pdf->stream('invoice-' . $shipment->shipment_number . '.pdf');
+    }
+
+    /**
+     * Method untuk Invoice (alias dari document)
+     */
+    public function invoice($id)
+    {
+        return $this->document($id);
+    }
+
+    /**
+     * Method untuk Surat Jalan Baru (tanpa harga)
+     */
+    public function deliveryNote($id)
+    {
+        $shipment = Shipment::with([
+                'storeOrder.store',
+                'shipmentDetails.product',
+                'shipmentDetails.unit',
+                'createdBy'
+            ])
+            ->findOrFail($id);
+
+        // Jika admin store, pastikan hanya bisa lihat pengiriman untuk tokonya
+        if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id != $shipment->storeOrder->store_id) {
+            return redirect()->route('shipments.index')
+                ->with('error', 'Anda tidak memiliki akses ke pengiriman ini.');
+        }
+
+        $pdf = PDF::loadView('shipments.delivery_note', compact('shipment'));
         return $pdf->stream('surat-jalan-' . $shipment->shipment_number . '.pdf');
     }
 }

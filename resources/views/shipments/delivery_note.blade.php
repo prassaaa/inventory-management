@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice {{ $shipment->shipment_number ?? 'N/A' }}</title>
+    <title>Surat Jalan {{ $shipment->shipment_number ?? 'N/A' }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -43,50 +43,48 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
         table, th, td {
             border: 1px solid #000;
         }
         th, td {
-            padding: 5px;
+            padding: 8px;
             text-align: left;
         }
         th {
             background-color: #f2f2f2;
         }
-        .text-end {
-            text-align: right;
+        .text-center {
+            text-align: center;
         }
         .signature-section {
-            display: flex;
-            justify-content: space-between;
             margin-top: 50px;
+            width: 100%;
+            display: table;
         }
         .signature-box {
-            width: 200px;
+            display: table-cell;
+            width: 33.33%;
             text-align: center;
+            vertical-align: top;
+            padding: 0 10px;
         }
         .signature-line {
             border-bottom: 1px solid #000;
-            margin-top: 50px;
-            margin-bottom: 5px;
-        }
-        .footer {
-            margin-top: 30px;
-            font-size: 10pt;
-            text-align: center;
-            color: #666;
+            margin-top: 60px;
+            margin-bottom: 10px;
+            height: 1px;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="title">INVOICE</div>
-        @php
-            $invoiceNumber = str_replace('SHP-', 'INV-', $shipment->shipment_number ?? 'N/A');
-        @endphp
-        <div class="document-number">No. {{ $invoiceNumber }}</div>
+        <div class="title">SURAT JALAN</div>
+        <div class="document-number">No. {{ $shipment->shipment_number ?? 'N/A' }}</div>
     </div>
 
     <div class="info-section">
@@ -118,48 +116,26 @@
     <table>
         <thead>
             <tr>
-                <th width="5%">No</th>
-                <th width="35%">Nama Produk</th>
-                <th width="10%">Satuan</th>
-                <th width="10%">Jumlah</th>
-                <th width="15%">Harga</th>
-                <th width="15%">Subtotal</th>
-                <th width="10%">Keterangan</th>
+                <th width="10%">No</th>
+                <th width="50%">Nama Produk</th>
+                <th width="20%">Satuan</th>
+                <th width="20%">Jumlah</th>
             </tr>
         </thead>
         <tbody>
-            @php $total = 0; @endphp
             @forelse($shipment->shipmentDetails as $index => $detail)
-            @php
-                // Cari detail pesanan yang sesuai dengan produk dan unit ini
-                $orderDetail = $shipment->storeOrder->storeOrderDetails->where('product_id', $detail->product_id)
-                                ->where('unit_id', $detail->unit_id)->first();
-                $price = $orderDetail ? $orderDetail->price : 0;
-                $subtotal = $price * $detail->quantity;
-                $total += $subtotal;
-            @endphp
             <tr>
-                <td>{{ $index + 1 }}</td>
+                <td class="text-center">{{ $index + 1 }}</td>
                 <td>{{ $detail->product->name ?? 'N/A' }}</td>
-                <td>{{ $detail->unit->name ?? 'N/A' }}</td>
-                <td>{{ $detail->quantity ?? 0 }}</td>
-                <td class="text-end">{{ number_format($price, 0, ',', '.') }}</td>
-                <td class="text-end">{{ number_format($subtotal, 0, ',', '.') }}</td>
-                <td></td>
+                <td class="text-center">{{ $detail->unit->name ?? 'N/A' }}</td>
+                <td class="text-center">{{ $detail->quantity ?? 0 }}</td>
             </tr>
             @empty
             <tr>
-                <td colspan="7" class="text-center">Tidak ada item</td>
+                <td colspan="4" class="text-center">Tidak ada item</td>
             </tr>
             @endforelse
         </tbody>
-        <tfoot>
-            <tr>
-                <th colspan="5" class="text-end">Total</th>
-                <th class="text-end">{{ number_format($total, 0, ',', '.') }}</th>
-                <th></th>
-            </tr>
-        </tfoot>
     </table>
 
     <div class="info-section">
@@ -188,24 +164,20 @@
     <div class="signature-section">
         <div class="signature-box">
             <div class="signature-line"></div>
-            <div>Dibuat oleh</div>
-            <div>{{ $shipment->createdBy->name ?? 'N/A' }}</div>
+            <div><strong>Dibuat oleh</strong></div>
+            <div>Gudang Pusat</div>
         </div>
         <div class="signature-box">
             <div class="signature-line"></div>
-            <div>Pengirim</div>
-            <div></div>
+            <div><strong>Pengirim</strong></div>
+            <div>(...........................)</div>
         </div>
         <div class="signature-box">
             <div class="signature-line"></div>
-            <div>Penerima</div>
-            <div></div>
+            <div><strong>Penerima</strong></div>
+            <div>(...........................)</div>
         </div>
     </div>
 
-    <div class="footer">
-        <p>Dokumen ini dicetak pada {{ now()->format('d/m/Y H:i') }} dan sah tanpa tanda tangan.</p>
-        <p>Halaman 1 dari 1</p>
-    </div>
 </body>
 </html>

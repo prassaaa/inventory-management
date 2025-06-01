@@ -11,8 +11,11 @@
                         <a href="{{ route('shipments.index') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Kembali
                         </a>
-                        <a href="{{ route('shipments.document', $shipment->id) }}" class="btn btn-primary" target="_blank">
-                            <i class="fas fa-file-alt"></i> Cetak Surat Jalan
+                        <a href="{{ route('shipments.invoice', $shipment->id) }}" class="btn btn-primary" target="_blank">
+                            <i class="fas fa-file-invoice"></i> Cetak Invoice
+                        </a>
+                        <a href="{{ route('shipments.delivery-note', $shipment->id) }}" class="btn btn-success" target="_blank">
+                            <i class="fas fa-truck"></i> Cetak Surat Jalan
                         </a>
                     </div>
                 </div>

@@ -55,8 +55,11 @@
                                         <a href="{{ route('shipments.show', $shipment->id) }}" class="btn btn-sm btn-info">
                                             <i class="fas fa-eye"></i> Detail
                                         </a>
-                                        <a href="{{ route('shipments.document', $shipment->id) }}" class="btn btn-sm btn-primary" target="_blank">
-                                            <i class="fas fa-file-alt"></i> Surat Jalan
+                                        <a href="{{ route('shipments.invoice', $shipment->id) }}" class="btn btn-sm btn-primary" target="_blank">
+                                            <i class="fas fa-file-invoice"></i> Invoice
+                                        </a>
+                                        <a href="{{ route('shipments.delivery-note', $shipment->id) }}" class="btn btn-sm btn-secondary" target="_blank">
+                                            <i class="fas fa-truck"></i> Surat Jalan
                                         </a>
                                     </td>
                                 </tr>

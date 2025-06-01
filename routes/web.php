@@ -124,6 +124,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('shipments/create/{storeOrder}', [ShipmentController::class, 'createFromOrder'])->name('shipments.create-from-order');
         Route::post('shipments/{shipment}/deliver', [ShipmentController::class, 'deliver'])->name('shipments.deliver');
         Route::get('shipments/{shipment}/document', [ShipmentController::class, 'document'])->name('shipments.document');
+        Route::get('shipments/{shipment}/invoice', [ShipmentController::class, 'invoice'])->name('shipments.invoice');
+        Route::get('shipments/{shipment}/delivery-note', [ShipmentController::class, 'deliveryNote'])->name('shipments.delivery-note');
     });
 
 

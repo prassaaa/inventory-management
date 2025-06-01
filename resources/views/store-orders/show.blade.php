@@ -261,9 +261,16 @@
                                     <a href="{{ route('shipments.show', $shipment->id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i> Detail
                                     </a>
-                                    <a href="{{ route('shipments.document', $shipment->id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
-                                        <i class="fas fa-file-alt"></i> Surat Jalan
-                                    </a>
+
+                                    {{-- Sembunyikan tombol untuk admin_store --}}
+                                    @unless(Auth::user()->hasRole('admin_store'))
+                                        <a href="{{ route('shipments.invoice', $shipment->id) }}" class="btn btn-sm btn-outline-success" target="_blank">
+                                            <i class="fas fa-file-invoice"></i> Invoice
+                                        </a>
+                                        <a href="{{ route('shipments.delivery-note', $shipment->id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                            <i class="fas fa-truck"></i> Surat Jalan
+                                        </a>
+                                    @endunless
                                 </td>
                             </tr>
                         @endforeach
