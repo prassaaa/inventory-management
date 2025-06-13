@@ -9,7 +9,12 @@
             <h1 class="h3 mb-0 text-dark fw-bold">
                 <i class="fas fa-chart-line me-2 text-primary"></i> Laporan Penjualan
             </h1>
-            <p class="text-muted">Analisis data penjualan dalam periode tertentu</p>
+            <p class="text-muted">
+                Analisis data penjualan dalam periode tertentu
+                @if(!$canSelectStore && $userStoreId)
+                    - {{ \App\Models\Store::find($userStoreId)->name ?? 'Toko' }}
+                @endif
+            </p>
         </div>
         <div>
             <a href="{{ route('reports.sales.export', request()->query()) }}" class="btn btn-success">
@@ -17,6 +22,15 @@
             </a>
         </div>
     </div>
+
+    <!-- Info Alert untuk User Cabang -->
+    @if(!$canSelectStore && $userStoreId)
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Info:</strong> Anda sedang melihat laporan untuk toko: <strong>{{ \App\Models\Store::find($userStoreId)->name ?? 'Toko Anda' }}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
 
     <div class="card shadow mb-4">
         <div class="card-header py-3">
@@ -39,22 +53,32 @@
                     </div>
 
                     @if($canSelectStore)
-                    <div class="col-md-3">
-                        <div class="form-group mb-3">
-                            <label for="store_id" class="form-label">Toko</label>
-                            <select class="form-select" id="store_id" name="store_id">
-                                <option value="">Semua Toko</option>
-                                @foreach($stores as $store)
-                                    <option value="{{ $store->id }}" {{ request('store_id') == $store->id ? 'selected' : '' }}>
-                                        {{ $store->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                        <!-- User pusat - bisa pilih semua toko -->
+                        <div class="col-md-3">
+                            <div class="form-group mb-3">
+                                <label for="store_id" class="form-label">Toko</label>
+                                <select class="form-select" id="store_id" name="store_id">
+                                    <option value="">Semua Toko</option>
+                                    @foreach($stores as $store)
+                                        <option value="{{ $store->id }}" {{ request('store_id') == $store->id ? 'selected' : '' }}>
+                                            {{ $store->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
-                    </div>
                     @else
-                        <!-- Jika user terkait toko tertentu, tambahkan hidden input -->
+                        <!-- User cabang - toko sudah fixed -->
                         <input type="hidden" name="store_id" id="store_id" value="{{ $userStoreId }}">
+                        <div class="col-md-4">
+                            <div class="form-group mb-3">
+                                <label class="form-label">Toko</label>
+                                <div class="form-control-plaintext bg-light rounded px-3 py-2">
+                                    <i class="fas fa-store me-2 text-primary"></i>
+                                    <strong>{{ \App\Models\Store::find($userStoreId)->name ?? 'Toko Anda' }}</strong>
+                                </div>
+                            </div>
+                        </div>
                     @endif
 
                     <div class="col-md-{{ $canSelectStore ? '3' : '4' }}">
@@ -88,6 +112,7 @@
         </div>
     </div>
 
+    <!-- Statistics Cards -->
     <div class="row">
         <div class="col-xl-4 col-md-6 mb-4">
             <div class="card border-left-primary shadow h-100 py-2">
@@ -141,6 +166,7 @@
         </div>
     </div>
 
+    <!-- Charts -->
     <div class="row">
         <div class="col-md-8">
             <div class="card shadow mb-4">
@@ -169,6 +195,7 @@
         </div>
     </div>
 
+    <!-- Sales Detail Table -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 fw-bold text-primary">Detail Penjualan</h6>
@@ -188,7 +215,9 @@
                         <tr>
                             <th>Tanggal</th>
                             <th>Invoice #</th>
-                            <th>Toko</th>
+                            @if($canSelectStore)
+                                <th>Toko</th>
+                            @endif
                             <th>Pelanggan</th>
                             <th>Pembayaran</th>
                             <th>Jumlah</th>
@@ -200,7 +229,9 @@
                         <tr>
                             <td>{{ $sale->date->format('d/m/Y') }}</td>
                             <td><span class="fw-medium">{{ $sale->invoice_number }}</span></td>
-                            <td>{{ $sale->store->name }}</td>
+                            @if($canSelectStore)
+                                <td>{{ $sale->store->name }}</td>
+                            @endif
                             <td>{{ $sale->customer_name ?? 'Pelanggan Umum' }}</td>
                             <td>
                                 <span class="badge {{ $sale->payment_type === 'tunai' ? 'bg-success-light text-success' : '' }}
@@ -223,6 +254,7 @@
         </div>
     </div>
 
+    <!-- Top Products Table -->
     <div class="card shadow mb-4">
         <div class="card-header py-3">
             <h6 class="m-0 fw-bold text-primary">Produk Terlaris</h6>
@@ -289,12 +321,11 @@
 @section('scripts')
 <script>
     $(document).ready(function() {
-        // Cek jika tabel sudah diinisialisasi sebelumnya
+        // Initialize DataTable
         if ($.fn.dataTable.isDataTable('#salesTable')) {
             $('#salesTable').DataTable().destroy();
         }
 
-        // Inisialisasi DataTable baru
         var salesTable = $('#salesTable').DataTable({
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/id.json'
@@ -303,15 +334,15 @@
             dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>t<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
             pageLength: 10,
             order: [[0, 'desc']],
-            destroy: true // Pastikan opsi destroy diaktifkan
+            destroy: true
         });
 
-        // Custom search untuk tabel penjualan
+        // Custom search
         $('#customSearch').keyup(function() {
             salesTable.search($(this).val()).draw();
         });
 
-        // Inisialisasi tabel produk terlaris
+        // Top products table
         $('#topProductsTable').DataTable({
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/id.json'
@@ -323,7 +354,7 @@
             destroy: true
         });
 
-        // Sales Chart
+        // Charts
         var ctx = document.getElementById("salesChart");
         var salesChart = new Chart(ctx, {
             type: 'line',
@@ -374,7 +405,6 @@
             }
         });
 
-        // Payment Methods Chart
         var ctx2 = document.getElementById("paymentMethodsChart");
         var paymentMethodsChart = new Chart(ctx2, {
             type: 'doughnut',
@@ -413,12 +443,8 @@
         // Handle print receipt button
         $('#printReceiptBtn').on('click', function() {
             var storeId = $('#store_id').val();
-            var date = $('#end_date').val(); // Gunakan tanggal akhir sebagai tanggal laporan
-
-            // Gunakan URL dari route baru
+            var date = $('#end_date').val();
             var printUrl = "/print-daily-sales?store_id=" + storeId + "&date=" + date;
-
-            // Buka jendela baru dalam ukuran penuh (tanpa parameter size)
             window.open(printUrl, '_blank');
         });
     });

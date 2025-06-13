@@ -10,7 +10,12 @@
             <h1 class="h3 mb-0 text-dark fw-bold">
                 <i class="fas fa-chart-line me-2 text-primary"></i> Laporan Keuangan
             </h1>
-            <p class="text-muted">Analisis pendapatan, pengeluaran, dan laba perusahaan</p>
+            <p class="text-muted">
+                Analisis pendapatan, pengeluaran, dan laba perusahaan
+                @if(isset($userStoreId) && $userStoreId)
+                    - {{ \App\Models\Store::find($userStoreId)->name ?? 'Toko Anda' }}
+                @endif
+            </p>
         </div>
         <div class="d-flex flex-wrap">
             <a href="{{ route('reports.balance-sheet') }}" class="btn btn-info text-white me-2 mb-2">
@@ -37,6 +42,15 @@
         </div>
     @endif
 
+    {{-- Info Alert untuk User Cabang --}}
+    @if(isset($canSelectStore) && !$canSelectStore && isset($userStoreId) && $userStoreId)
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Info:</strong> Anda sedang melihat laporan keuangan untuk toko: <strong>{{ \App\Models\Store::find($userStoreId)->name ?? 'Toko Anda' }}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
     <!-- Filter Section -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
@@ -48,31 +62,47 @@
         <div class="card-body">
             <form action="{{ route('reports.finance') }}" method="GET">
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-{{ isset($canSelectStore) && $canSelectStore ? '4' : '6' }}">
                         <div class="form-group mb-3">
                             <label for="start_date" class="form-label">Tanggal Mulai</label>
                             <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request('start_date', now()->startOfMonth()->format('Y-m-d')) }}">
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-{{ isset($canSelectStore) && $canSelectStore ? '4' : '6' }}">
                         <div class="form-group mb-3">
                             <label for="end_date" class="form-label">Tanggal Akhir</label>
                             <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request('end_date', now()->format('Y-m-d')) }}">
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-group mb-3">
-                            <label for="store_id" class="form-label">Lokasi</label>
-                            <select class="form-select" id="store_id" name="store_id">
-                                <option value="">Semua Lokasi</option>
-                                @foreach($stores as $store)
-                                    <option value="{{ $store->id }}" {{ request('store_id') == $store->id ? 'selected' : '' }}>
-                                        {{ $store->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+
+                    @if(isset($canSelectStore) && $canSelectStore)
+                        {{-- User pusat - bisa pilih semua toko --}}
+                        <div class="col-md-4">
+                            <div class="form-group mb-3">
+                                <label for="store_id" class="form-label">Lokasi</label>
+                                <select class="form-select" id="store_id" name="store_id">
+                                    <option value="">Semua Lokasi</option>
+                                    @foreach($stores as $store)
+                                        <option value="{{ $store->id }}" {{ request('store_id') == $store->id ? 'selected' : '' }}>
+                                            {{ $store->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
-                    </div>
+                    @else
+                        {{-- User cabang - toko sudah fixed --}}
+                        <input type="hidden" name="store_id" value="{{ $userStoreId }}">
+                        <div class="col-md-12">
+                            <div class="form-group mb-3">
+                                <label class="form-label">Lokasi</label>
+                                <div class="form-control-plaintext bg-light rounded px-3 py-2">
+                                    <i class="fas fa-store me-2 text-primary"></i>
+                                    <strong>{{ \App\Models\Store::find($userStoreId)->name ?? 'Toko Anda' }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="form-group d-flex">
@@ -92,6 +122,9 @@
         <div class="card-header py-3 d-flex justify-content-between align-items-center bg-light">
             <h6 class="m-0 fw-bold text-primary">
                 <i class="fas fa-wallet me-1"></i> Saldo Kas dan Bank
+                @if(isset($userStoreId) && $userStoreId)
+                    <small class="text-muted">- {{ \App\Models\Store::find($userStoreId)->name ?? 'Toko Anda' }}</small>
+                @endif
             </h6>
             <div>
                 <a href="{{ route('finance.balance.create') }}" class="btn btn-sm btn-primary">
@@ -127,7 +160,12 @@
                 @empty
                     <div class="col-12">
                         <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i> Belum ada data saldo. Silakan tambahkan saldo awal.
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Belum ada data saldo
+                            @if(isset($userStoreId) && $userStoreId)
+                                untuk toko {{ \App\Models\Store::find($userStoreId)->name ?? 'ini' }}
+                            @endif
+                            . Silakan tambahkan saldo awal.
                         </div>
                     </div>
                 @endforelse
@@ -143,7 +181,11 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Total Penjualan</div>
+                                Total Penjualan
+                                @if(isset($userStoreId) && $userStoreId)
+                                    <br><small class="text-muted">{{ \App\Models\Store::find($userStoreId)->name ?? 'Toko' }}</small>
+                                @endif
+                            </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($sales, 0, ',', '.') }}</div>
                         </div>
                         <div class="col-auto">
@@ -160,7 +202,11 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                                Total Pembelian</div>
+                                Total Pembelian
+                                @if(isset($userStoreId) && $userStoreId)
+                                    <br><small class="text-muted">Global</small>
+                                @endif
+                            </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($purchases, 0, ',', '.') }}</div>
                         </div>
                         <div class="col-auto">
@@ -177,7 +223,11 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Total Pengeluaran</div>
+                                Total Pengeluaran
+                                @if(isset($userStoreId) && $userStoreId)
+                                    <br><small class="text-muted">{{ \App\Models\Store::find($userStoreId)->name ?? 'Toko' }}</small>
+                                @endif
+                            </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($expenses, 0, ',', '.') }}</div>
                         </div>
                         <div class="col-auto">
@@ -194,7 +244,11 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Laba Bersih</div>
+                                Laba Bersih
+                                @if(isset($userStoreId) && $userStoreId)
+                                    <br><small class="text-muted">{{ \App\Models\Store::find($userStoreId)->name ?? 'Toko' }}</small>
+                                @endif
+                            </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">Rp {{ number_format($netProfit, 0, ',', '.') }}</div>
                         </div>
                         <div class="col-auto">
@@ -206,78 +260,80 @@
         </div>
     </div>
 
-    <!-- Payables & Receivables Section -->
-    <div class="row mt-2">
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-light">
-                    <h6 class="m-0 fw-bold text-primary">
-                        <i class="fas fa-file-invoice-dollar me-1"></i> Laporan Hutang ke Pemasok
-                    </h6>
-                    <a href="{{ route('reports.payables') }}" class="btn btn-sm btn-primary">
-                        <i class="fas fa-arrow-right"></i> Lihat Detail
-                    </a>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="icon-circle bg-primary text-white me-3">
-                            <i class="fas fa-file-invoice-dollar"></i>
-                        </div>
-                        <div>
-                            <h5 class="mb-0">Hutang ke Pemasok</h5>
-                            <p class="text-muted small mb-0">Menampilkan daftar hutang yang belum dibayar ke pemasok</p>
-                        </div>
+    <!-- Payables & Receivables Section (Hanya tampil untuk user pusat) -->
+    @if(isset($canSelectStore) && $canSelectStore)
+        <div class="row mt-2">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-light">
+                        <h6 class="m-0 fw-bold text-primary">
+                            <i class="fas fa-file-invoice-dollar me-1"></i> Laporan Hutang ke Pemasok
+                        </h6>
+                        <a href="{{ route('reports.payables') }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-arrow-right"></i> Lihat Detail
+                        </a>
                     </div>
-                    <hr>
-                    <div class="row text-center">
-                        <div class="col">
-                            <h6 class="small text-muted">Total Hutang</h6>
-                            <h5 class="mb-0 text-primary">Rp {{ number_format($totalPayables ?? 0, 0, ',', '.') }}</h5>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-circle bg-primary text-white me-3">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0">Hutang ke Pemasok</h5>
+                                <p class="text-muted small mb-0">Menampilkan daftar hutang yang belum dibayar ke pemasok</p>
+                            </div>
                         </div>
-                        <div class="col">
-                            <h6 class="small text-muted">Hutang Jatuh Tempo</h6>
-                            <h5 class="mb-0 text-danger">Rp {{ number_format($overduePayables ?? 0, 0, ',', '.') }}</h5>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col">
+                                <h6 class="small text-muted">Total Hutang</h6>
+                                <h5 class="mb-0 text-primary">Rp {{ number_format($totalPayables ?? 0, 0, ',', '.') }}</h5>
+                            </div>
+                            <div class="col">
+                                <h6 class="small text-muted">Hutang Jatuh Tempo</h6>
+                                <h5 class="mb-0 text-danger">Rp {{ number_format($overduePayables ?? 0, 0, ',', '.') }}</h5>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-light">
-                    <h6 class="m-0 fw-bold text-primary">
-                        <i class="fas fa-hand-holding-usd me-1"></i> Laporan Piutang dari Toko
-                    </h6>
-                    <a href="{{ route('reports.receivables') }}" class="btn btn-sm btn-primary">
-                        <i class="fas fa-arrow-right"></i> Lihat Detail
-                    </a>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="icon-circle bg-success text-white me-3">
-                            <i class="fas fa-hand-holding-usd"></i>
-                        </div>
-                        <div>
-                            <h5 class="mb-0">Piutang dari Toko</h5>
-                            <p class="text-muted small mb-0">Menampilkan daftar piutang yang belum dibayar dari toko</p>
-                        </div>
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-light">
+                        <h6 class="m-0 fw-bold text-primary">
+                            <i class="fas fa-hand-holding-usd me-1"></i> Laporan Piutang dari Toko
+                        </h6>
+                        <a href="{{ route('reports.receivables') }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-arrow-right"></i> Lihat Detail
+                        </a>
                     </div>
-                    <hr>
-                    <div class="row text-center">
-                        <div class="col">
-                            <h6 class="small text-muted">Total Piutang</h6>
-                            <h5 class="mb-0 text-success">Rp {{ number_format($totalReceivables ?? 0, 0, ',', '.') }}</h5>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-circle bg-success text-white me-3">
+                                <i class="fas fa-hand-holding-usd"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0">Piutang dari Toko</h5>
+                                <p class="text-muted small mb-0">Menampilkan daftar piutang yang belum dibayar dari toko</p>
+                            </div>
                         </div>
-                        <div class="col">
-                            <h6 class="small text-muted">Piutang Jatuh Tempo</h6>
-                            <h5 class="mb-0 text-danger">Rp {{ number_format($overdueReceivables ?? 0, 0, ',', '.') }}</h5>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col">
+                                <h6 class="small text-muted">Total Piutang</h6>
+                                <h5 class="mb-0 text-success">Rp {{ number_format($totalReceivables ?? 0, 0, ',', '.') }}</h5>
+                            </div>
+                            <div class="col">
+                                <h6 class="small text-muted">Piutang Jatuh Tempo</h6>
+                                <h5 class="mb-0 text-danger">Rp {{ number_format($overdueReceivables ?? 0, 0, ',', '.') }}</h5>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    @endif
 
     <!-- Charts Section -->
     <div class="row">
@@ -286,6 +342,9 @@
                 <div class="card-header py-3 bg-light">
                     <h6 class="m-0 fw-bold text-primary">
                         <i class="fas fa-chart-line me-1"></i> Tren Pendapatan vs Pengeluaran
+                        @if(isset($userStoreId) && $userStoreId)
+                            <small class="text-muted">- {{ \App\Models\Store::find($userStoreId)->name ?? 'Toko' }}</small>
+                        @endif
                     </h6>
                 </div>
                 <div class="card-body">
@@ -301,6 +360,9 @@
                 <div class="card-header py-3 bg-light">
                     <h6 class="m-0 fw-bold text-primary">
                         <i class="fas fa-chart-pie me-1"></i> Kategori Pengeluaran
+                        @if(isset($userStoreId) && $userStoreId)
+                            <small class="text-muted">- {{ \App\Models\Store::find($userStoreId)->name ?? 'Toko' }}</small>
+                        @endif
                     </h6>
                 </div>
                 <div class="card-body">
@@ -319,6 +381,9 @@
                 <div class="card-header py-3 bg-light">
                     <h6 class="m-0 fw-bold text-primary">
                         <i class="fas fa-file-alt me-1"></i> Ringkasan Keuangan
+                        @if(isset($userStoreId) && $userStoreId)
+                            <small class="text-muted">- {{ \App\Models\Store::find($userStoreId)->name ?? 'Toko' }}</small>
+                        @endif
                     </h6>
                 </div>
                 <div class="card-body">
@@ -371,6 +436,9 @@
                 <div class="card-header py-3 d-flex justify-content-between align-items-center bg-light">
                     <h6 class="m-0 fw-bold text-primary">
                         <i class="fas fa-list me-1"></i> Rincian Pengeluaran
+                        @if(isset($userStoreId) && $userStoreId)
+                            <small class="text-muted">- {{ \App\Models\Store::find($userStoreId)->name ?? 'Toko' }}</small>
+                        @endif
                     </h6>
                     <a href="{{ route('finance.expense.create') }}" class="btn btn-sm btn-warning">
                         <i class="fas fa-plus me-1"></i> Tambah Pengeluaran
@@ -387,14 +455,25 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($expense_categories as $category)
+                                @forelse($expense_categories as $category)
                                 <tr>
                                     <td>{{ $category['category'] }}</td>
                                     <td>Rp {{ number_format($category['total'], 0, ',', '.') }}</td>
                                     <td>{{ $expenses > 0 ? number_format(($category['total'] / $expenses) * 100, 1, ',', '.') : 0 }}%</td>
                                 </tr>
-                                @endforeach
+                                @empty
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">
+                                        Tidak ada data pengeluaran
+                                        @if(isset($userStoreId) && $userStoreId)
+                                            untuk toko ini
+                                        @endif
+                                        pada periode yang dipilih
+                                    </td>
+                                </tr>
+                                @endforelse
                             </tbody>
+                            @if($expense_categories->count() > 0)
                             <tfoot>
                                 <tr class="fw-bold">
                                     <td>Total</td>
@@ -402,6 +481,7 @@
                                     <td>100%</td>
                                 </tr>
                             </tfoot>
+                            @endif
                         </table>
                     </div>
                 </div>

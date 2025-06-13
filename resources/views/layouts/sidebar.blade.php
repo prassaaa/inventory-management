@@ -16,9 +16,19 @@
                 @foreach(Auth::user()->roles as $role)
                     {{ ucfirst($role->name) }}
                 @endforeach
+                {{-- Tampilkan info toko untuk user cabang --}}
+                @if(Auth::user()->store_id)
+                    <br><span class="badge bg-info text-white">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</span>
+                @endif
             </small>
         </div>
     </div>
+
+    {{-- Helper variable untuk pengecekan akses --}}
+    @php
+        $userStoreId = Auth::user()->store_id ?? null;
+        $canSelectStore = is_null($userStoreId); // true = pusat, false = cabang
+    @endphp
 
     <!-- Menu Section with Scroll -->
     <div class="list-group list-group-flush pt-2 sidebar-menu-container">
@@ -224,15 +234,22 @@
         <div class="collapse {{ request()->routeIs('reports.*') ? 'show' : '' }}" id="reportsSubmenu">
             <div class="bg-light">
 
-                @can('view sales')
-                <a href="{{ route('reports.sales-by-store') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.sales-by-store') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-sort-amount-down me-2 text-primary small"></i> Peringkat Toko
-                </a>
-                @endcan
+                {{-- Menu Peringkat Toko - Hanya untuk user pusat --}}
+                @if($canSelectStore)
+                    @can('view sales')
+                    <a href="{{ route('reports.sales-by-store') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.sales-by-store') ? 'active-submenu' : '' }}">
+                        <i class="fas fa-sort-amount-down me-2 text-primary small"></i> Peringkat Toko
+                    </a>
+                    @endcan
+                @endif
 
                 @can('view sales')
                 <a href="{{ route('reports.sales') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.sales') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-chart-line me-2 text-primary small"></i> Laporan Penjualan
+                    <i class="fas fa-chart-line me-2 text-primary small"></i>
+                    Laporan Penjualan
+                    @if(!$canSelectStore)
+                        <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @endif
                 </a>
                 @endcan
 
@@ -244,25 +261,40 @@
 
                 @can('view stock warehouses')
                 <a href="{{ route('reports.inventory') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.inventory') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-dolly me-2 text-primary small"></i> Laporan Inventaris
+                    <i class="fas fa-dolly me-2 text-primary small"></i>
+                    Laporan Inventaris
+                    @if(!$canSelectStore)
+                        <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @endif
                 </a>
                 @endcan
 
                 @can('view financial reports')
                 <a href="{{ route('reports.finance') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.finance') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-coins me-2 text-primary small"></i> Laporan Keuangan
+                    <i class="fas fa-coins me-2 text-primary small"></i>
+                    Laporan Keuangan
+                    @if(!$canSelectStore)
+                        <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @endif
                 </a>
 
-                <a href="{{ route('reports.payables') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.payables') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-file-invoice-dollar me-2 text-primary small"></i> Hutang ke Pemasok
-                </a>
+                {{-- Menu Hutang Piutang - Hanya untuk user pusat --}}
+                @if($canSelectStore)
+                    <a href="{{ route('reports.payables') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.payables') ? 'active-submenu' : '' }}">
+                        <i class="fas fa-file-invoice-dollar me-2 text-primary small"></i> Hutang ke Pemasok
+                    </a>
 
-                <a href="{{ route('reports.receivables') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.receivables') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-hand-holding-usd me-2 text-primary small"></i> Piutang dari Toko
-                </a>
+                    <a href="{{ route('reports.receivables') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.receivables') ? 'active-submenu' : '' }}">
+                        <i class="fas fa-hand-holding-usd me-2 text-primary small"></i> Piutang dari Toko
+                    </a>
+                @endif
 
                 <a href="{{ route('reports.profit-loss') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.profit-loss') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-dollar-sign me-2 text-primary small"></i> Laporan Laba/Rugi
+                    <i class="fas fa-dollar-sign me-2 text-primary small"></i>
+                    Laporan Laba/Rugi
+                    @if(!$canSelectStore)
+                        <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @endif
                 </a>
                 @endcan
             </div>
@@ -353,5 +385,8 @@
     <!-- Footer Section -->
     <div class="mt-auto text-center border-top p-3 d-none d-md-block">
         <small class="text-muted">© {{ date('Y') }} {{ config('app.name', 'Inventaris') }}</small>
+        @if(!$canSelectStore)
+            <br><small class="text-primary">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+        @endif
     </div>
 </div>
