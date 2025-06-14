@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductStorePriceController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\SupplierController;
@@ -43,6 +44,15 @@ Route::middleware(['auth'])->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Store Prices Management - PERBAIKI INI
+    Route::group(['middleware' => ['permission:view products']], function () {
+        Route::get('/store-prices', [ProductStorePriceController::class, 'index'])->name('store-prices.index');
+        Route::get('/store-prices/{product}/edit', [ProductStorePriceController::class, 'edit'])->name('store-prices.edit');
+        Route::put('/store-prices/{product}', [ProductStorePriceController::class, 'update'])->name('store-prices.update');
+        Route::delete('/store-prices/{product}/reset', [ProductStorePriceController::class, 'resetToDefault'])->name('store-prices.reset');
+        Route::post('/store-prices/bulk-update', [ProductStorePriceController::class, 'bulkUpdate'])->name('store-prices.bulk-update');
+    });
+
     // Master Data Routes
     Route::group(['middleware' => ['permission:view categories']], function () {
         Route::resource('categories', CategoryController::class);
@@ -53,19 +63,19 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::group(['middleware' => ['permission:view products']], function () {
-    // PENTING: Route khusus HARUS di atas resource route
-    Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
-    Route::get('products/import/template', [ProductController::class, 'importTemplate'])->name('products.import.template');
-    Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
-    Route::get('products/trashed', [ProductController::class, 'trashed'])->name('products.trashed');
-    Route::get('products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
+        // PENTING: Route khusus HARUS di atas resource route
+        Route::get('products/export', [ProductController::class, 'export'])->name('products.export');
+        Route::get('products/import/template', [ProductController::class, 'importTemplate'])->name('products.import.template');
+        Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
+        Route::get('products/trashed', [ProductController::class, 'trashed'])->name('products.trashed');
+        Route::get('products/ingredients', [ProductController::class, 'getIngredients'])->name('products.ingredients');
 
-    Route::patch('products/restore/{id}', [ProductController::class, 'restore'])->name('products.restore');
-    Route::delete('products/force-delete/{id}', [ProductController::class, 'forceDelete'])->name('products.force-delete');
+        Route::patch('products/restore/{id}', [ProductController::class, 'restore'])->name('products.restore');
+        Route::delete('products/force-delete/{id}', [ProductController::class, 'forceDelete'])->name('products.force-delete');
 
-    // Resource route TERAKHIR
-    Route::resource('products', ProductController::class);
-});
+        // Resource route TERAKHIR
+        Route::resource('products', ProductController::class);
+    });
 
     Route::group(['middleware' => ['permission:view suppliers']], function () {
         Route::resource('suppliers', SupplierController::class);
@@ -127,7 +137,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('shipments/{shipment}/invoice', [ShipmentController::class, 'invoice'])->name('shipments.invoice');
         Route::get('shipments/{shipment}/delivery-note', [ShipmentController::class, 'deliveryNote'])->name('shipments.delivery-note');
     });
-
 
     // Finance Management - BAGIAN BARU
     Route::group(['middleware' => ['permission:view financial reports']], function () {

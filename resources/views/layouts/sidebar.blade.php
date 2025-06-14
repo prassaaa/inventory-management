@@ -28,6 +28,18 @@
     @php
         $userStoreId = Auth::user()->store_id ?? null;
         $canSelectStore = is_null($userStoreId); // true = pusat, false = cabang
+        $userRoles = Auth::user()->roles->pluck('name')->toArray();
+        $isOwner = in_array('owner', $userRoles);
+        $isOwnerStore = in_array('owner_store', $userRoles); // TAMBAHAN: cek owner_store
+        $isAdminBackOffice = in_array('admin_back_office', $userRoles);
+        $isAdminStore = in_array('admin_store', $userRoles);
+
+        // Logic untuk menu pengaturan harga:
+        // 1. Owner atau Owner Store selalu bisa akses (baik pusat maupun cabang)
+        // 2. Admin back office hanya jika pusat (tanpa store_id)
+        // 3. Admin store TIDAK BISA akses menu harga produk
+        $canAccessStorePrices = $isOwner || $isOwnerStore ||
+                               ($isAdminBackOffice && $canSelectStore);
     @endphp
 
     <!-- Menu Section with Scroll -->
@@ -74,42 +86,92 @@
         </a>
         @endcan
 
-        @can('view suppliers')
-        <a href="{{ route('suppliers.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('suppliers.*') ? 'active-menu' : '' }}">
+        <!-- Menu Pengaturan Harga - Hanya untuk Owner, Owner Store, dan Admin Back Office -->
+        @if(Auth::user()->hasRole(['owner', 'owner_store', 'admin_back_office']))
+        <a href="{{ route('store-prices.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('store-prices.*') ? 'active-menu' : '' }}">
             <div class="d-flex align-items-center">
                 <span class="icon-wrapper me-3">
-                    <i class="fas fa-truck text-primary"></i>
+                    <i class="fas fa-dollar-sign text-primary"></i>
                 </span>
-                <span>Pemasok</span>
+                <span>
+                    @if($canSelectStore)
+                        Pengaturan Harga
+                    @else
+                        Harga Produk
+                    @endif
+                </span>
+                @if(!$canSelectStore)
+                    <span class="badge bg-success ms-2" title="Harga Khusus Cabang">
+                        <i class="fas fa-tag"></i>
+                    </span>
+                @endif
+                @if($isOwner)
+                    <span class="badge bg-warning ms-1" title="Owner Access">
+                        <i class="fas fa-crown"></i>
+                    </span>
+                @elseif($isOwnerStore)
+                    <span class="badge bg-info ms-1" title="Owner Store Access">
+                        <i class="fas fa-store-alt"></i>
+                    </span>
+                @endif
             </div>
         </a>
-        @endcan
+        @endif
 
-        @can('view stores')
-        <a href="{{ route('stores.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('stores.*') ? 'active-menu' : '' }}">
-            <div class="d-flex align-items-center">
-                <span class="icon-wrapper me-3">
-                    <i class="fas fa-store text-primary"></i>
-                </span>
-                <span>Toko</span>
-            </div>
-        </a>
-        @endcan
+        {{-- Menu Pemasok - Hanya untuk user pusat --}}
+        @if($canSelectStore)
+            @can('view suppliers')
+            <a href="{{ route('suppliers.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('suppliers.*') ? 'active-menu' : '' }}">
+                <div class="d-flex align-items-center">
+                    <span class="icon-wrapper me-3">
+                        <i class="fas fa-truck text-primary"></i>
+                    </span>
+                    <span>Pemasok</span>
+                    <span class="badge bg-secondary ms-2" title="Hanya Pusat">
+                        <i class="fas fa-building"></i>
+                    </span>
+                </div>
+            </a>
+            @endcan
+        @endif
+
+        {{-- Menu Toko - Hanya untuk user pusat --}}
+        @if($canSelectStore)
+            @can('view stores')
+            <a href="{{ route('stores.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('stores.*') ? 'active-menu' : '' }}">
+                <div class="d-flex align-items-center">
+                    <span class="icon-wrapper me-3">
+                        <i class="fas fa-store text-primary"></i>
+                    </span>
+                    <span>Toko</span>
+                    <span class="badge bg-secondary ms-2" title="Hanya Pusat">
+                        <i class="fas fa-building"></i>
+                    </span>
+                </div>
+            </a>
+            @endcan
+        @endif
 
         <!-- Divider -->
         <div class="sidebar-divider my-2"></div>
         <h6 class="sidebar-heading px-3 text-muted text-uppercase small">Transaksi</h6>
 
-        @can('view purchases')
-        <a href="{{ route('purchases.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('purchases.*') ? 'active-menu' : '' }}">
-            <div class="d-flex align-items-center">
-                <span class="icon-wrapper me-3">
-                    <i class="fas fa-shopping-cart text-primary"></i>
-                </span>
-                <span>Pembelian</span>
-            </div>
-        </a>
-        @endcan
+        {{-- Menu Pembelian - Hanya untuk user pusat --}}
+        @if($canSelectStore)
+            @can('view purchases')
+            <a href="{{ route('purchases.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('purchases.*') ? 'active-menu' : '' }}">
+                <div class="d-flex align-items-center">
+                    <span class="icon-wrapper me-3">
+                        <i class="fas fa-shopping-cart text-primary"></i>
+                    </span>
+                    <span>Pembelian</span>
+                    <span class="badge bg-secondary ms-2" title="Hanya Pusat">
+                        <i class="fas fa-building"></i>
+                    </span>
+                </div>
+            </a>
+            @endcan
+        @endif
 
         @can('view sales')
         <a href="{{ route('sales.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('sales.*') ? 'active-menu' : '' }}">
@@ -118,6 +180,11 @@
                     <i class="fas fa-cash-register text-primary"></i>
                 </span>
                 <span>Penjualan</span>
+                @if(!$canSelectStore)
+                    <span class="badge bg-info ms-2" title="Data Cabang">
+                        <i class="fas fa-store"></i>
+                    </span>
+                @endif
             </div>
         </a>
         @endcan
@@ -129,11 +196,16 @@
                     <i class="fas fa-shopping-bag text-primary"></i>
                 </span>
                 <span>Kasir (POS)</span>
+                @if(!$canSelectStore)
+                    <span class="badge bg-success ms-2" title="Menggunakan Harga Khusus Cabang">
+                        <i class="fas fa-tag"></i>
+                    </span>
+                @endif
             </div>
         </a>
         @endcan
 
-        <!-- TAMBAHAN: Menu Pesanan Toko -->
+        <!-- Menu Pesanan Toko - Hanya untuk user pusat atau sesuai role -->
         @canany(['view store orders', 'view shipments'])
         <a href="#orderSubmenu" data-bs-toggle="collapse" aria-expanded="{{ request()->routeIs('store-orders.*') || request()->routeIs('shipments.*') ? 'true' : 'false' }}" class="list-group-item list-group-item-action border-0 submenu-toggle {{ (request()->routeIs('store-orders.*') || request()->routeIs('shipments.*')) ? 'active-parent' : '' }}">
             <div class="d-flex align-items-center justify-content-between">
@@ -142,6 +214,15 @@
                         <i class="fas fa-shopping-basket text-primary"></i>
                     </span>
                     <span>Pesanan Toko</span>
+                    @if($canSelectStore)
+                        <span class="badge bg-secondary ms-2" title="Manajemen Pusat">
+                            <i class="fas fa-building"></i>
+                        </span>
+                    @else
+                        <span class="badge bg-info ms-2" title="Pesanan Cabang">
+                            <i class="fas fa-store"></i>
+                        </span>
+                    @endif
                 </div>
                 <i class="fas {{ (request()->routeIs('store-orders.*') || request()->routeIs('shipments.*')) ? 'fa-angle-down' : 'fa-angle-right' }}"></i>
             </div>
@@ -154,7 +235,7 @@
                 </a>
                 @endcan
 
-                @if(Auth::user()->hasRole('admin_store'))
+                @if(Auth::user()->hasRole('owner_store'))
                 <a href="{{ route('store-orders.create') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('store-orders.create') ? 'active-submenu' : '' }}">
                     <i class="fas fa-plus me-2 text-primary small"></i> Buat Pesanan
                 </a>
@@ -169,23 +250,28 @@
         </div>
         @endcanany
 
-        <!-- BAGIAN BARU: Menu Konfirmasi Pembelian untuk Admin Gudang -->
-        @role('admin_warehouse')
-        <a href="{{ route('warehouse.purchases.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('warehouse.purchases.*') ? 'active-menu' : '' }}">
-            <div class="d-flex align-items-center">
-                <span class="icon-wrapper me-3">
-                    <i class="fas fa-check-circle text-primary"></i>
-                </span>
-                <span>Konfirmasi Pembelian</span>
-                @php
-                    $unconfirmedCount = \App\Models\Purchase::where('status', 'confirmed')->count();
-                @endphp
-                @if($unconfirmedCount > 0)
-                    <span class="badge bg-danger ms-2">{{ $unconfirmedCount }}</span>
-                @endif
-            </div>
-        </a>
-        @endrole
+        <!-- Menu Konfirmasi Pembelian untuk Admin Gudang - Hanya pusat -->
+        @if($canSelectStore)
+            @role('admin_warehouse')
+            <a href="{{ route('warehouse.purchases.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('warehouse.purchases.*') ? 'active-menu' : '' }}">
+                <div class="d-flex align-items-center">
+                    <span class="icon-wrapper me-3">
+                        <i class="fas fa-check-circle text-primary"></i>
+                    </span>
+                    <span>Konfirmasi Pembelian</span>
+                    @php
+                        $unconfirmedCount = \App\Models\Purchase::where('status', 'confirmed')->count();
+                    @endphp
+                    @if($unconfirmedCount > 0)
+                        <span class="badge bg-danger ms-2">{{ $unconfirmedCount }}</span>
+                    @endif
+                    <span class="badge bg-secondary ms-1" title="Hanya Pusat">
+                        <i class="fas fa-building"></i>
+                    </span>
+                </div>
+            </a>
+            @endrole
+        @endif
 
         <!-- Divider -->
         <div class="sidebar-divider my-2"></div>
@@ -205,15 +291,24 @@
         </a>
         <div class="collapse {{ request()->routeIs('stock.*') ? 'show' : '' }}" id="stockSubmenu">
             <div class="bg-light">
-                @can('view stock warehouses')
-                <a href="{{ route('stock.warehouse') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('stock.warehouse') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-boxes me-2 text-primary small"></i> Stok Gudang
-                </a>
-                @endcan
+                {{-- Stok Gudang - Hanya untuk user pusat --}}
+                @if($canSelectStore)
+                    @can('view stock warehouses')
+                    <a href="{{ route('stock.warehouse') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('stock.warehouse') ? 'active-submenu' : '' }}">
+                        <i class="fas fa-boxes me-2 text-primary small"></i> Stok Gudang
+                        <span class="badge bg-secondary ms-2" title="Hanya Pusat">
+                            <i class="fas fa-building"></i>
+                        </span>
+                    </a>
+                    @endcan
+                @endif
 
                 @can('view stock stores')
                 <a href="{{ route('stock.store') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('stock.store') ? 'active-submenu' : '' }}">
                     <i class="fas fa-store me-2 text-primary small"></i> Stok Toko
+                    @if(!$canSelectStore)
+                        <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @endif
                 </a>
                 @endcan
             </div>
@@ -239,6 +334,9 @@
                     @can('view sales')
                     <a href="{{ route('reports.sales-by-store') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.sales-by-store') ? 'active-submenu' : '' }}">
                         <i class="fas fa-sort-amount-down me-2 text-primary small"></i> Peringkat Toko
+                        <span class="badge bg-secondary ms-2" title="Hanya Pusat">
+                            <i class="fas fa-building"></i>
+                        </span>
                     </a>
                     @endcan
                 @endif
@@ -253,11 +351,17 @@
                 </a>
                 @endcan
 
-                @can('view purchases')
-                <a href="{{ route('reports.purchases') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.purchases') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-chart-pie me-2 text-primary small"></i> Laporan Pembelian
-                </a>
-                @endcan
+                {{-- Laporan Pembelian - Hanya untuk user pusat --}}
+                @if($canSelectStore)
+                    @can('view purchases')
+                    <a href="{{ route('reports.purchases') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.purchases') ? 'active-submenu' : '' }}">
+                        <i class="fas fa-chart-pie me-2 text-primary small"></i> Laporan Pembelian
+                        <span class="badge bg-secondary ms-2" title="Hanya Pusat">
+                            <i class="fas fa-building"></i>
+                        </span>
+                    </a>
+                    @endcan
+                @endif
 
                 @can('view stock warehouses')
                 <a href="{{ route('reports.inventory') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.inventory') ? 'active-submenu' : '' }}">
@@ -265,6 +369,10 @@
                     Laporan Inventaris
                     @if(!$canSelectStore)
                         <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @else
+                        <span class="badge bg-secondary ms-2" title="Data Semua Store">
+                            <i class="fas fa-building"></i>
+                        </span>
                     @endif
                 </a>
                 @endcan
@@ -275,6 +383,10 @@
                     Laporan Keuangan
                     @if(!$canSelectStore)
                         <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @else
+                        <span class="badge bg-secondary ms-2" title="Data Semua Store">
+                            <i class="fas fa-building"></i>
+                        </span>
                     @endif
                 </a>
 
@@ -282,10 +394,16 @@
                 @if($canSelectStore)
                     <a href="{{ route('reports.payables') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.payables') ? 'active-submenu' : '' }}">
                         <i class="fas fa-file-invoice-dollar me-2 text-primary small"></i> Hutang ke Pemasok
+                        <span class="badge bg-secondary ms-2" title="Hanya Pusat">
+                            <i class="fas fa-building"></i>
+                        </span>
                     </a>
 
                     <a href="{{ route('reports.receivables') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.receivables') ? 'active-submenu' : '' }}">
                         <i class="fas fa-hand-holding-usd me-2 text-primary small"></i> Piutang dari Toko
+                        <span class="badge bg-secondary ms-2" title="Hanya Pusat">
+                            <i class="fas fa-building"></i>
+                        </span>
                     </a>
                 @endif
 
@@ -294,51 +412,66 @@
                     Laporan Laba/Rugi
                     @if(!$canSelectStore)
                         <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @else
+                        <span class="badge bg-secondary ms-2" title="Data Semua Store">
+                            <i class="fas fa-building"></i>
+                        </span>
                     @endif
                 </a>
                 @endcan
             </div>
         </div>
 
-        <!-- TAMBAHAN: Sistem Manajemen Menu -->
-        @canany(['manage users', 'manage roles'])
-        <!-- Divider -->
-        <div class="sidebar-divider my-2"></div>
-        <h6 class="sidebar-heading px-3 text-muted text-uppercase small">Sistem</h6>
+        <!-- Sistem Manajemen Menu - Hanya untuk user pusat atau owner -->
+        @if($canSelectStore || $isOwner || $isOwnerStore)
+            @canany(['manage users', 'manage roles'])
+            <!-- Divider -->
+            <div class="sidebar-divider my-2"></div>
+            <h6 class="sidebar-heading px-3 text-muted text-uppercase small">Sistem</h6>
 
-        <!-- System Management Section -->
-        <a href="#systemSubmenu" data-bs-toggle="collapse" aria-expanded="{{ request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*') ? 'true' : 'false' }}" class="list-group-item list-group-item-action border-0 submenu-toggle {{ (request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*')) ? 'active-parent' : '' }}">
-            <div class="d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center">
-                    <span class="icon-wrapper me-3">
-                        <i class="fas fa-cogs text-primary"></i>
-                    </span>
-                    <span>Manajemen</span>
+            <!-- System Management Section -->
+            <a href="#systemSubmenu" data-bs-toggle="collapse" aria-expanded="{{ request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*') ? 'true' : 'false' }}" class="list-group-item list-group-item-action border-0 submenu-toggle {{ (request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*')) ? 'active-parent' : '' }}">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <span class="icon-wrapper me-3">
+                            <i class="fas fa-cogs text-primary"></i>
+                        </span>
+                        <span>Manajemen</span>
+                        @if(($isOwner || $isOwnerStore) && !$canSelectStore)
+                            <span class="badge bg-warning ms-2" title="Owner Access">
+                                <i class="fas fa-crown"></i>
+                            </span>
+                        @else
+                            <span class="badge bg-secondary ms-2" title="Admin Pusat">
+                                <i class="fas fa-building"></i>
+                            </span>
+                        @endif
+                    </div>
+                    <i class="fas {{ (request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*')) ? 'fa-angle-down' : 'fa-angle-right' }}"></i>
                 </div>
-                <i class="fas {{ (request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*')) ? 'fa-angle-down' : 'fa-angle-right' }}"></i>
+            </a>
+            <div class="collapse {{ (request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*')) ? 'show' : '' }}" id="systemSubmenu">
+                <div class="bg-light">
+                    @can('manage users')
+                    <a href="{{ route('users.index') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('users.*') ? 'active-submenu' : '' }}">
+                        <i class="fas fa-users me-2 text-primary small"></i> Pengguna
+                    </a>
+                    @endcan
+
+                    @can('manage roles')
+                    <a href="{{ route('roles.index') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('roles.*') ? 'active-submenu' : '' }}">
+                        <i class="fas fa-user-tag me-2 text-primary small"></i> Peran
+                    </a>
+
+                    <a href="{{ route('permissions.index') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('permissions.*') ? 'active-submenu' : '' }}">
+                        <i class="fas fa-lock me-2 text-primary small"></i> Izin
+                    </a>
+                    @endcan
+
+                </div>
             </div>
-        </a>
-        <div class="collapse {{ (request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('permissions.*') || request()->routeIs('backups.*')) ? 'show' : '' }}" id="systemSubmenu">
-            <div class="bg-light">
-                @can('manage users')
-                <a href="{{ route('users.index') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('users.*') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-users me-2 text-primary small"></i> Pengguna
-                </a>
-                @endcan
-
-                @can('manage roles')
-                <a href="{{ route('roles.index') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('roles.*') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-user-tag me-2 text-primary small"></i> Peran
-                </a>
-
-                <a href="{{ route('permissions.index') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('permissions.*') ? 'active-submenu' : '' }}">
-                    <i class="fas fa-lock me-2 text-primary small"></i> Izin
-                </a>
-                @endcan
-
-            </div>
-        </div>
-        @endcanany
+            @endcanany
+        @endif
 
         <!-- Notification Link -->
         <a href="{{ route('notifications.index') }}" class="list-group-item list-group-item-action border-0 {{ request()->routeIs('notifications.*') ? 'active-menu' : '' }}">

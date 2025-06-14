@@ -19,5 +19,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Tambahkan route API untuk ingredients
-Route::get('/products/ingredients', [ProductApiController::class, 'getIngredients']);
+Route::prefix('products')->group(function () {
+    Route::get('/ingredients', [ProductApiController::class, 'getIngredients']);
+    Route::get('/store-price', [ProductApiController::class, 'getStorePrice']);
+    Route::get('/store-prices', [ProductApiController::class, 'getProductStorePrices']);
+});

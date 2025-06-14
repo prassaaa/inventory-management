@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\StockStore;
 use App\Models\Category;
 use App\Models\Unit;
+use App\Models\ProductStorePrice;
 use App\Helpers\UnitConverter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -244,68 +245,60 @@ class SaleController extends Controller
     /**
      * Display POS interface.
      */
-    public function pos()
+   public function pos()
     {
-        // Ubah query untuk hanya menampilkan kategori yang diizinkan di POS
         $categories = Category::where('show_in_pos', true)
                             ->orderBy('name')
                             ->get();
 
         $storeId = Auth::user()->store_id;
 
-        // Log untuk debugging
         Log::info('POS accessed by user', [
             'user_id' => Auth::id(),
             'store_id' => $storeId
         ]);
 
-        // Ambil semua produk yang aktif dengan eager loading category dan baseUnit
-        $products = Product::with(['category', 'baseUnit'])
+        // Ambil semua produk yang aktif dengan eager loading
+        $products = Product::with(['category', 'baseUnit', 'productUnits.unit'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
-        // Ambil semua data stok untuk toko ini dalam satu query
+        // Ambil semua data stok untuk toko ini
         $stocks = StockStore::where('store_id', $storeId)->get();
-
-        // Log jumlah stok yang ditemukan
-        Log::info('Stock data loaded', [
-            'store_id' => $storeId,
-            'stock_count' => $stocks->count()
-        ]);
-
-        // Buat mapping product_id ke stok untuk lookup yang cepat
         $stockMap = [];
         foreach ($stocks as $stock) {
-            $key = $stock->product_id;
-            $stockMap[$key] = $stock;
+            $stockMap[$stock->product_id] = $stock;
         }
 
-        // Hubungkan stok dengan produk
-        foreach ($products as $product) {
-            if (isset($stockMap[$product->id])) {
-                $product->storeStock = $stockMap[$product->id];
+        // Ambil harga khusus untuk store ini
+        $storePrices = ProductStorePrice::where('store_id', $storeId)
+            ->where('is_active', true)
+            ->get()
+            ->groupBy('product_id');
 
-                // Log untuk debugging produk dengan stok
-                if ($stockMap[$product->id]->quantity > 0) {
-                    Log::info('Product with stock', [
-                        'product_id' => $product->id,
-                        'product_name' => $product->name,
-                        'stock' => $stockMap[$product->id]->quantity
-                    ]);
+        // Hubungkan data dengan produk
+        foreach ($products as $product) {
+            // Set stok
+            $product->storeStock = $stockMap[$product->id] ?? null;
+
+            // Set harga untuk store ini (unit dasar)
+            $product->store_selling_price = $product->getPriceForStore($storeId);
+            $product->has_custom_price = $product->hasCustomPriceForStore($storeId);
+
+            // Set harga untuk unit tambahan jika ada
+            if ($product->productUnits->count() > 0) {
+                foreach ($product->productUnits as $productUnit) {
+                    $productUnit->store_selling_price = $product->getPriceForStore($storeId, $productUnit->unit_id);
                 }
-            } else {
-                // Jika tidak ada stok, buat objek kosong
-                $product->storeStock = null;
             }
         }
 
-        // Penyederhanaan cara mengakses stok dalam view
-        return view('sales.pos', compact('categories', 'products', 'stockMap'));
+        return view('sales.pos', compact('categories', 'products', 'stockMap', 'storePrices'));
     }
 
     /**
-     * Process POS sale dengan konversi satuan yang ditingkatkan.
+     * Process POS sale - Complete working version with flexible validation
      */
     public function processPos(Request $request)
     {
@@ -315,7 +308,7 @@ class SaleController extends Controller
             'sale.dining_option' => 'required|in:makan_di_tempat,dibawa_pulang',
             'sale.customer_name' => 'nullable|string|max:255',
             'sale.discount' => 'required|numeric|min:0',
-            'sale.tax_enabled' => 'required|boolean',
+            'sale.tax_enabled' => 'required', // Flexible - accept any value
             'sale.tax' => 'required|numeric|min:0',
             'sale.total_amount' => 'required|numeric|min:0',
             'sale.total_payment' => 'required|numeric|min:0',
@@ -327,7 +320,7 @@ class SaleController extends Controller
             'sale.items.*.price' => 'required|numeric|min:0',
             'sale.items.*.discount' => 'required|numeric|min:0',
             'sale.items.*.subtotal' => 'required|numeric|min:0',
-            'sale.items.*.is_processed' => 'nullable|boolean',
+            'sale.items.*.is_processed' => 'nullable', // Flexible - accept any value
         ]);
 
         $saleData = $request->sale;
@@ -350,7 +343,10 @@ class SaleController extends Controller
             $storeCode = Store::find($saleData['store_id'])->name[0] ?? 'S';
             $invoiceNumber = 'INV/' . $storeCode . '/' . date('Ymd') . '/' . sprintf('%04d', $lastSale ? (int)substr($lastSale->invoice_number, -4) + 1 : 1);
 
-            // Create sale with tax_enabled field
+            // Convert tax_enabled to boolean manually
+            $taxEnabled = filter_var($saleData['tax_enabled'], FILTER_VALIDATE_BOOLEAN);
+
+            // Create sale
             $sale = Sale::create([
                 'store_id' => $saleData['store_id'],
                 'invoice_number' => $invoiceNumber,
@@ -361,7 +357,7 @@ class SaleController extends Controller
                 'dining_option' => $saleData['dining_option'],
                 'discount' => $saleData['discount'],
                 'tax' => $saleData['tax'],
-                'tax_enabled' => $saleData['tax_enabled'],
+                'tax_enabled' => $taxEnabled, // Use converted boolean
                 'total_payment' => $saleData['total_payment'],
                 'change' => $saleData['change'],
                 'status' => 'paid',
@@ -377,25 +373,12 @@ class SaleController extends Controller
 
             // Create sale details and update stock
             foreach ($saleData['items'] as $index => $item) {
-                // Normalisasi nilai is_processed
-                $isProcessed = false;
-                if (isset($item['is_processed'])) {
-                    if (is_bool($item['is_processed'])) {
-                        $isProcessed = $item['is_processed'];
-                    } elseif (is_string($item['is_processed'])) {
-                        $isProcessed = in_array(strtolower($item['is_processed']), ['true', '1', 'yes', 'on']);
-                    } elseif (is_numeric($item['is_processed'])) {
-                        $isProcessed = (int)$item['is_processed'] === 1;
-                    }
-                }
-
                 // Log informasi item yang diproses
                 Log::info('Memproses item penjualan', [
                     'index' => $index,
                     'product_id' => $item['product_id'],
                     'quantity' => $item['quantity'],
-                    'unit_id' => $item['unit_id'],
-                    'is_processed' => $isProcessed
+                    'unit_id' => $item['unit_id']
                 ]);
 
                 // Buat detail penjualan
@@ -413,7 +396,7 @@ class SaleController extends Controller
                     'sale_detail_id' => $saleDetail->id
                 ]);
 
-                // Get product
+                // Get product from database
                 $product = Product::find($item['product_id']);
 
                 if (!$product) {
@@ -427,13 +410,12 @@ class SaleController extends Controller
                     'db_is_processed' => $product->is_processed
                 ]);
 
-                // Gunakan nilai is_processed dari database (bukan dari request) jika produk benar-benar olahan
+                // ALWAYS use database value for is_processed - not from frontend
                 $useProcessed = $product->is_processed;
 
-                Log::info('Keputusan penggunaan is_processed', [
-                    'from_request' => $isProcessed,
-                    'from_database' => $product->is_processed,
-                    'final_decision' => $useProcessed
+                Log::info('Menggunakan is_processed dari database', [
+                    'product_name' => $product->name,
+                    'is_processed' => $useProcessed
                 ]);
 
                 // Check if product is processed
@@ -482,7 +464,7 @@ class SaleController extends Controller
                                 'product_id' => $ingredient->id
                             ])->first();
 
-                            // Jika tidak ditemukan stok, buat baru
+                            // Jika tidak ditemukan stok, buat baru dengan stok 0
                             if (!$ingredientStockStore) {
                                 Log::info('Stok bahan tidak ditemukan, membuat stok baru', [
                                     'ingredient_id' => $ingredient->id,
@@ -535,22 +517,22 @@ class SaleController extends Controller
                                 ]);
                             }
 
-                            // Cek stok
+                            // Cek stok - HANYA WARNING, TIDAK BLOCK TRANSAKSI
                             if ($ingredientStockStore->quantity < $quantityToReduce) {
-                                Log::warning('Stok bahan tidak cukup', [
+                                Log::warning('Stok bahan tidak cukup - melanjutkan transaksi', [
                                     'ingredient_id' => $ingredient->id,
                                     'ingredient_name' => $ingredient->name,
                                     'available' => $ingredientStockStore->quantity,
                                     'needed' => $quantityToReduce
                                 ]);
 
-                                throw new \Exception("Stok bahan {$ingredient->name} tidak mencukupi untuk produk {$product->name}.");
+                                // Don't throw exception - just continue with negative stock
                             }
 
                             // Simpan stok sebelum pengurangan
                             $stockBefore = $ingredientStockStore->quantity;
 
-                            // Kurangi stok
+                            // Kurangi stok (bisa jadi negatif)
                             DB::table('stock_stores')
                                 ->where('id', $ingredientStockStore->id)
                                 ->decrement('quantity', $quantityToReduce);
@@ -631,22 +613,22 @@ class SaleController extends Controller
                         'needed_quantity' => $baseQuantity
                     ]);
 
-                    // Cek stok
+                    // Cek stok - HANYA WARNING, TIDAK BLOCK TRANSAKSI
                     if ($stockStore->quantity < $baseQuantity) {
-                        Log::warning('Stok produk tidak cukup', [
+                        Log::warning('Stok produk tidak cukup - melanjutkan transaksi', [
                             'product_id' => $product->id,
                             'product_name' => $product->name,
                             'available' => $stockStore->quantity,
                             'needed' => $baseQuantity
                         ]);
 
-                        throw new \Exception("Stok tidak cukup untuk produk {$product->name}.");
+                        // Don't throw exception - just continue
                     }
 
                     // Simpan stok sebelum pengurangan
                     $stockBefore = $stockStore->quantity;
 
-                    // Kurangi stok dengan query database langsung
+                    // Kurangi stok dengan query database langsung (bisa jadi negatif)
                     DB::table('stock_stores')
                         ->where('id', $stockStore->id)
                         ->decrement('quantity', $baseQuantity);

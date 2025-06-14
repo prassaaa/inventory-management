@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Unit;
+use App\Models\ProductStorePrice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -109,6 +110,168 @@ class ProductApiController extends Controller
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat mengambil data bahan: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * Get price for specific store
+     */
+    public function getStorePrice(Request $request)
+    {
+        $productId = $request->input('product_id');
+        $storeId = $request->input('store_id');
+        $unitId = $request->input('unit_id');
+
+        Log::info('API: Get store price request', [
+            'product_id' => $productId,
+            'store_id' => $storeId,
+            'unit_id' => $unitId
+        ]);
+
+        if (!$productId || !$storeId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product ID dan Store ID diperlukan'
+            ]);
+        }
+
+        try {
+            $product = Product::find($productId);
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Produk tidak ditemukan'
+                ]);
+            }
+
+            $price = $product->getPriceForStore($storeId, $unitId);
+            $hasCustomPrice = $product->hasCustomPriceForStore($storeId);
+
+            Log::info('API: Store price retrieved', [
+                'product_id' => $productId,
+                'store_id' => $storeId,
+                'price' => $price,
+                'has_custom_price' => $hasCustomPrice
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'price' => $price,
+                'formatted_price' => number_format($price, 0, ',', '.'),
+                'has_custom_price' => $hasCustomPrice
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting store price', [
+                'product_id' => $productId,
+                'store_id' => $storeId,
+                'unit_id' => $unitId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil harga: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all prices for a product in specific store
+     */
+    public function getProductStorePrices(Request $request)
+    {
+        $productId = $request->input('product_id');
+        $storeId = $request->input('store_id');
+
+        Log::info('API: Get product store prices request', [
+            'product_id' => $productId,
+            'store_id' => $storeId
+        ]);
+
+        if (!$productId || !$storeId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product ID dan Store ID diperlukan'
+            ]);
+        }
+
+        try {
+            $product = Product::with(['baseUnit', 'productUnits.unit'])->find($productId);
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Produk tidak ditemukan'
+                ]);
+            }
+
+            $prices = [];
+            $hasCustomPrice = $product->hasCustomPriceForStore($storeId);
+
+            // Harga untuk unit dasar
+            $baseUnitPrice = $product->getPriceForStore($storeId, $product->base_unit_id);
+            $baseUnitHasCustom = ProductStorePrice::where('product_id', $productId)
+                ->where('store_id', $storeId)
+                ->where('unit_id', $product->base_unit_id)
+                ->where('is_active', true)
+                ->exists();
+
+            // Ensure price is numeric
+            $baseUnitPrice = is_numeric($baseUnitPrice) ? (float)$baseUnitPrice : 0;
+
+            $prices[] = [
+                'unit_id' => $product->base_unit_id,
+                'unit_name' => $product->baseUnit->name,
+                'price' => $baseUnitPrice,
+                'is_base_unit' => true,
+                'has_custom_price' => $baseUnitHasCustom
+            ];
+
+            // Harga untuk unit tambahan
+            foreach ($product->productUnits as $productUnit) {
+                $unitPrice = $product->getPriceForStore($storeId, $productUnit->unit_id);
+                $unitHasCustom = ProductStorePrice::where('product_id', $productId)
+                    ->where('store_id', $storeId)
+                    ->where('unit_id', $productUnit->unit_id)
+                    ->where('is_active', true)
+                    ->exists();
+
+                // Ensure price is numeric
+                $unitPrice = is_numeric($unitPrice) ? (float)$unitPrice : 0;
+
+                $prices[] = [
+                    'unit_id' => $productUnit->unit_id,
+                    'unit_name' => $productUnit->unit->name,
+                    'price' => $unitPrice,
+                    'is_base_unit' => false,
+                    'has_custom_price' => $unitHasCustom
+                ];
+            }
+
+            Log::info('API: Product store prices retrieved', [
+                'product_id' => $productId,
+                'store_id' => $storeId,
+                'prices_count' => count($prices),
+                'has_custom_price' => $hasCustomPrice,
+                'prices' => $prices // Log the actual prices for debugging
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'prices' => $prices,
+                'has_custom_price' => $hasCustomPrice
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting product store prices', [
+                'product_id' => $productId,
+                'store_id' => $storeId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
