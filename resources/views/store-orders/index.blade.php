@@ -9,7 +9,13 @@
             <h1 class="h3 mb-0 text-dark fw-bold">
                 <i class="fas fa-shopping-basket me-2 text-primary"></i> Pesanan Toko
             </h1>
-            <p class="text-muted">Mengelola pesanan toko ke pusat.</p>
+            <p class="text-muted">
+                @if(Auth::user()->store_id)
+                    Mengelola pesanan untuk {{ Auth::user()->store->name }}.
+                @else
+                    Mengelola pesanan toko ke pusat.
+                @endif
+            </p>
         </div>
         <div class="col-auto">
             @if(Auth::user()->hasRole('admin_store'))
@@ -34,7 +40,14 @@
 
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 fw-bold text-primary">Daftar Pesanan</h6>
+            <h6 class="m-0 fw-bold text-primary">
+                Daftar Pesanan
+                @if(Auth::user()->store_id)
+                    <small class="text-muted">({{ Auth::user()->store->name }})</small>
+                @else
+                    <small class="text-muted">(Semua Cabang)</small>
+                @endif
+            </h6>
             <div>
                 <form action="{{ route('store-orders.index') }}" method="GET" class="d-flex">
                     <div class="input-group">
@@ -52,19 +65,25 @@
                     <thead class="table-light">
                         <tr>
                             <th>No. Pesanan</th>
+                            @if(!Auth::user()->store_id) {{-- Hanya tampilkan kolom toko jika user adalah pusat --}}
                             <th>Toko</th>
+                            @endif
                             <th>Tanggal</th>
                             <th>Status</th>
-                            <th>Pembayaran</th> <!-- Kolom pembayaran yang ditambahkan -->
+                            <th>Pembayaran</th>
                             <th>Dibuat Oleh</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($storeOrders as $order)
+                        {{-- Pengecekan akses: cabang hanya bisa lihat pesanan sendiri --}}
+                        @if(!Auth::user()->store_id || Auth::user()->store_id == $order->store_id)
                         <tr>
                             <td>{{ $order->order_number }}</td>
+                            @if(!Auth::user()->store_id) {{-- Hanya tampilkan nama toko jika user adalah pusat --}}
                             <td>{{ $order->store->name }}</td>
+                            @endif
                             <td>{{ $order->date->format('d/m/Y') }}</td>
                             <td>
                                 @if($order->status == 'pending')
@@ -81,7 +100,6 @@
                                     <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ ucfirst($order->status) }}</span>
                                 @endif
                             </td>
-                            <!-- Tambahkan kolom pembayaran -->
                             <td>
                                 @if($order->payment_type == 'cash')
                                     <span class="badge bg-success bg-opacity-10 text-success">Tunai</span>
@@ -136,9 +154,10 @@
                                 </div>
                             </td>
                         </tr>
+                        @endif
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center">Tidak ada pesanan ditemukan.</td>
+                            <td colspan="{{ Auth::user()->store_id ? '6' : '7' }}" class="text-center">Tidak ada pesanan ditemukan.</td>
                         </tr>
                         @endforelse
                     </tbody>
