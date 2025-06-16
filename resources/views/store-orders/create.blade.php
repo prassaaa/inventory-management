@@ -101,7 +101,7 @@
                     </div>
                 </div>
 
-                <!-- Tambahkan bagian metode pembayaran -->
+                <!-- Bagian metode pembayaran -->
                 <div class="row mb-4">
                     <div class="col-md-6">
                         <div class="form-group mb-3">
@@ -120,9 +120,16 @@
                     </div>
                 </div>
 
+                <!-- Alert Info tentang Ongkir -->
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Informasi:</strong> Ongkos kirim akan ditentukan oleh admin pusat saat konfirmasi pesanan.
+                    Total final akan mencakup nilai pesanan + ongkos kirim.
+                </div>
+
                 <div class="form-group mb-4">
                     <label for="note" class="form-label">Catatan</label>
-                    <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
+                    <textarea name="note" id="note" class="form-control" rows="3" placeholder="Masukkan catatan khusus untuk pesanan ini (opsional)">{{ old('note') }}</textarea>
                 </div>
 
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end">

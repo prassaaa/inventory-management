@@ -179,6 +179,11 @@ class BackOfficeStoreOrderController extends Controller
             return redirect()->back()->with('error', 'Anda tidak memiliki izin untuk mengkonfirmasi pesanan.');
         }
 
+        // VALIDASI INPUT ONGKIR
+        $validated = $request->validate([
+            'shipping_cost' => 'required|numeric|min:0'
+        ]);
+
         $storeOrder = StoreOrder::findOrFail($id);
 
         if ($storeOrder->status != StoreOrder::STATUS_PENDING) {
@@ -187,17 +192,34 @@ class BackOfficeStoreOrderController extends Controller
 
         DB::beginTransaction();
         try {
-            // Update status pesanan
+            // HITUNG GRAND TOTAL
+            $grandTotal = $storeOrder->total_amount + $validated['shipping_cost'];
+
+            // Update status pesanan dan ongkir
             $storeOrder->update([
                 'status' => StoreOrder::STATUS_CONFIRMED_BY_ADMIN,
+                'shipping_cost' => $validated['shipping_cost'],
+                'grand_total' => $grandTotal,
                 'confirmed_at' => Carbon::now(),
                 'updated_by' => Auth::id()
             ]);
 
+            // UPDATE PIUTANG JIKA ADA
+            $receivable = AccountReceivable::where('store_order_id', $storeOrder->id)->first();
+            if ($receivable) {
+                $receivable->update([
+                    'amount' => $grandTotal, // Update dengan grand total termasuk ongkir
+                    'notes' => $receivable->notes . "\n" . date('d/m/Y') . ": Ongkir Rp " . number_format($validated['shipping_cost'], 0, ',', '.') . " ditambahkan",
+                    'updated_by' => Auth::id(),
+                ]);
+            }
+
             // Log aktivitas untuk debugging
-            \Log::info('Pesanan dikonfirmasi', [
+            \Log::info('Pesanan dikonfirmasi dengan ongkir', [
                 'order_id' => $storeOrder->id,
                 'order_number' => $storeOrder->order_number,
+                'shipping_cost' => $validated['shipping_cost'],
+                'grand_total' => $grandTotal,
                 'confirmed_by' => Auth::user()->name,
                 'user_role' => Auth::user()->getRoleNames()
             ]);
@@ -205,14 +227,13 @@ class BackOfficeStoreOrderController extends Controller
             // Kirim notifikasi ke Admin Gudang
             $warehouseAdmins = User::role('admin_gudang')->get();
             foreach ($warehouseAdmins as $admin) {
-                // Implementasi notifikasi akan ditambahkan nanti
                 \Log::info('Notifikasi dikirim ke admin gudang', ['admin_id' => $admin->id]);
             }
 
             DB::commit();
 
             return redirect()->route('store-orders.index')
-                ->with('success', 'Pesanan berhasil dikonfirmasi dan diteruskan ke admin gudang.');
+                ->with('success', 'Pesanan berhasil dikonfirmasi dengan ongkir Rp ' . number_format($validated['shipping_cost'], 0, ',', '.') . ' dan diteruskan ke admin gudang.');
 
         } catch (\Exception $e) {
             DB::rollBack();

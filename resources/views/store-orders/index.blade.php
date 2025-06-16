@@ -69,6 +69,7 @@
                             <th>Toko</th>
                             @endif
                             <th>Tanggal</th>
+                            <th>Total</th>
                             <th>Status</th>
                             <th>Pembayaran</th>
                             <th>Dibuat Oleh</th>
@@ -85,6 +86,17 @@
                             <td>{{ $order->store->name }}</td>
                             @endif
                             <td>{{ $order->date->format('d/m/Y') }}</td>
+                            <td>
+                                <div>
+                                    <strong>Rp {{ number_format($order->grand_total ?: $order->total_amount, 0, ',', '.') }}</strong>
+                                    @if($order->shipping_cost > 0)
+                                        <small class="d-block text-muted">
+                                            Subtotal: Rp {{ number_format($order->total_amount, 0, ',', '.') }}<br>
+                                            Ongkir: Rp {{ number_format($order->shipping_cost, 0, ',', '.') }}
+                                        </small>
+                                    @endif
+                                </div>
+                            </td>
                             <td>
                                 @if($order->status == 'pending')
                                     <span class="badge bg-warning bg-opacity-10 text-warning">Menunggu</span>
@@ -120,12 +132,14 @@
                                     </a>
 
                                     @if(Auth::user()->hasRole(['owner', 'admin_back_office']) && $order->status == 'pending')
-                                    <form action="{{ route('store-orders.confirm', $order->id) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <button type="submit" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="Konfirmasi">
-                                            <i class="fas fa-check"></i>
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-success"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#confirmModal{{ $order->id }}"
+                                            title="Konfirmasi">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    @include('store-orders.confirm-modal', ['storeOrder' => $order])
                                     @endif
 
                                     @if(Auth::user()->hasRole(['owner', 'admin_back_office']) && $order->status == 'confirmed_by_admin')
@@ -157,7 +171,7 @@
                         @endif
                         @empty
                         <tr>
-                            <td colspan="{{ Auth::user()->store_id ? '6' : '7' }}" class="text-center">Tidak ada pesanan ditemukan.</td>
+                            <td colspan="{{ Auth::user()->store_id ? '7' : '8' }}" class="text-center">Tidak ada pesanan ditemukan.</td>
                         </tr>
                         @endforelse
                     </tbody>

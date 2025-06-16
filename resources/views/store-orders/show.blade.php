@@ -39,7 +39,7 @@
                 <div class="card-body">
                     <table class="table table-borderless">
                         <tr>
-                            <th width="30%">No. Pesanan</th>
+                            <th width="35%">No. Pesanan</th>
                             <td>{{ $storeOrder->order_number ?? 'N/A' }}</td>
                         </tr>
                         <tr>
@@ -64,7 +64,6 @@
                                 @endif
                             </td>
                         </tr>
-                        <!-- Tambahkan informasi metode pembayaran -->
                         <tr>
                             <th>Metode Pembayaran</th>
                             <td>
@@ -200,23 +199,35 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @php $total = 0; @endphp
+                        @php $subtotal = 0; @endphp
                         @foreach($storeOrder->storeOrderDetails as $index => $detail)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
                                 <td>{{ $detail->product->name ?? 'N/A' }}</td>
                                 <td>{{ $detail->unit->name ?? 'N/A' }}</td>
                                 <td>{{ intval($detail->quantity) }}</td>
-                                <td class="text-end">{{ number_format($detail->price, 0, ',', '.') }}</td>
-                                <td class="text-end">{{ number_format($detail->subtotal, 0, ',', '.') }}</td>
+                                <td class="text-end">Rp {{ number_format($detail->price, 0, ',', '.') }}</td>
+                                <td class="text-end">Rp {{ number_format($detail->subtotal, 0, ',', '.') }}</td>
                             </tr>
-                            @php $total += $detail->subtotal; @endphp
+                            @php $subtotal += $detail->subtotal; @endphp
                         @endforeach
                     </tbody>
-                    <tfoot>
+                    <tfoot class="table-light">
                         <tr>
-                            <th colspan="5" class="text-end">Total</th>
-                            <th class="text-end">{{ number_format($total, 0, ',', '.') }}</th>
+                            <th colspan="5" class="text-end">Subtotal</th>
+                            <th class="text-end">Rp {{ number_format($subtotal, 0, ',', '.') }}</th>
+                        </tr>
+                        @if($storeOrder->shipping_cost > 0)
+                        <tr>
+                            <th colspan="5" class="text-end">Ongkos Kirim</th>
+                            <th class="text-end">Rp {{ number_format($storeOrder->shipping_cost, 0, ',', '.') }}</th>
+                        </tr>
+                        @endif
+                        <tr class="table-primary">
+                            <th colspan="5" class="text-end fs-5">Grand Total</th>
+                            <th class="text-end fs-5">
+                                <strong>Rp {{ number_format($storeOrder->grand_total ?: $storeOrder->total_amount, 0, ',', '.') }}</strong>
+                            </th>
                         </tr>
                     </tfoot>
                 </table>
@@ -293,12 +304,13 @@
 
                 <div>
                     @if(Auth::user()->hasRole(['owner', 'admin_back_office']) && $storeOrder->status == 'pending')
-                    <form action="{{ route('store-orders.confirm', $storeOrder->id) }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-check me-1"></i> Konfirmasi Pesanan
-                        </button>
-                    </form>
+                    <button type="button"
+                            class="btn btn-success"
+                            data-bs-toggle="modal"
+                            data-bs-target="#confirmModal{{ $storeOrder->id }}">
+                        <i class="fas fa-check me-1"></i> Konfirmasi Pesanan
+                    </button>
+                    @include('store-orders.confirm-modal', ['storeOrder' => $storeOrder])
                     @endif
 
                     @if(Auth::user()->hasRole(['owner', 'admin_back_office']) && $storeOrder->status == 'confirmed_by_admin')

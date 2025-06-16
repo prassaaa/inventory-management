@@ -22,6 +22,8 @@ class StoreOrder extends Model
         'payment_type',
         'due_date',
         'total_amount',
+        'shipping_cost',
+        'grand_total',
         'confirmed_at',
         'forwarded_at',
         'shipped_at',
@@ -40,7 +42,9 @@ class StoreOrder extends Model
         'shipped_at' => 'datetime',
         'delivered_at' => 'datetime',
         'completed_at' => 'datetime',
-        'total_amount' => 'decimal:2'
+        'total_amount' => 'decimal:2',
+        'shipping_cost' => 'decimal:2',
+        'grand_total' => 'decimal:2',
     ];
 
     // Relasi yang sudah ada
