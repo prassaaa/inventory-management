@@ -206,4 +206,39 @@ class StoreClientOrderController extends Controller
                 ->with('error', 'Terjadi kesalahan saat mengkonfirmasi penerimaan: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Hapus pesanan (hanya untuk status pending dan admin store)
+     */
+    public function destroy($id)
+    {
+        $storeOrder = StoreOrder::where('store_id', Auth::user()->store_id)
+                    ->findOrFail($id);
+
+        // Hanya bisa hapus jika status pending
+        if ($storeOrder->status !== StoreOrder::STATUS_PENDING) {
+            return redirect()->back()->with('error', 'Pesanan ini tidak dapat dihapus karena sudah diproses.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Hapus piutang jika ada
+            AccountReceivable::where('store_order_id', $storeOrder->id)->delete();
+
+            // Hapus detail pesanan
+            $storeOrder->storeOrderDetails()->delete();
+
+            // Hapus pesanan
+            $storeOrder->delete();
+
+            DB::commit();
+
+            return redirect()->route('store.orders.index')
+                ->with('success', 'Pesanan berhasil dihapus.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan saat menghapus pesanan: ' . $e->getMessage());
+        }
+    }
 }

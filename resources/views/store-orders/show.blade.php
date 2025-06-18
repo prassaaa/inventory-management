@@ -214,19 +214,34 @@
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <th colspan="5" class="text-end">Subtotal</th>
+                            <th colspan="5" class="text-end">Subtotal Pesanan</th>
                             <th class="text-end">Rp {{ number_format($subtotal, 0, ',', '.') }}</th>
                         </tr>
-                        @if($storeOrder->shipping_cost > 0)
                         <tr>
                             <th colspan="5" class="text-end">Ongkos Kirim</th>
-                            <th class="text-end">Rp {{ number_format($storeOrder->shipping_cost, 0, ',', '.') }}</th>
+                            <th class="text-end">
+                                @if($storeOrder->shipping_cost > 0)
+                                    Rp {{ number_format($storeOrder->shipping_cost, 0, ',', '.') }}
+                                @elseif($storeOrder->status == 'pending')
+                                    <span class="text-warning">Menunggu konfirmasi</span>
+                                @else
+                                    <span class="text-success">Gratis</span>
+                                @endif
+                            </th>
                         </tr>
-                        @endif
                         <tr class="table-primary">
                             <th colspan="5" class="text-end fs-5">Grand Total</th>
                             <th class="text-end fs-5">
-                                <strong>Rp {{ number_format($storeOrder->grand_total ?: $storeOrder->total_amount, 0, ',', '.') }}</strong>
+                                <strong>
+                                    @if($storeOrder->grand_total > 0)
+                                        Rp {{ number_format($storeOrder->grand_total, 0, ',', '.') }}
+                                    @else
+                                        Rp {{ number_format($storeOrder->total_amount, 0, ',', '.') }}
+                                        @if($storeOrder->status == 'pending')
+                                            <small class="d-block text-warning fw-normal">*Belum final</small>
+                                        @endif
+                                    @endif
+                                </strong>
                             </th>
                         </tr>
                     </tfoot>
@@ -294,52 +309,101 @@
 
     <!-- Action Buttons -->
     <div class="card shadow mb-4">
-        <div class="card-body">
-            <div class="d-flex justify-content-between">
-                <div>
-                    <a href="{{ route('store-orders.index') }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left me-1"></i> Kembali
-                    </a>
-                </div>
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <a href="{{ route('store.orders.index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Kembali ke Daftar
+                </a>
 
-                <div>
-                    @if(Auth::user()->hasRole(['owner', 'admin_back_office']) && $storeOrder->status == 'pending')
-                    <button type="button"
-                            class="btn btn-success"
-                            data-bs-toggle="modal"
-                            data-bs-target="#confirmModal{{ $storeOrder->id }}">
-                        <i class="fas fa-check me-1"></i> Konfirmasi Pesanan
-                    </button>
-                    @include('store-orders.confirm-modal', ['storeOrder' => $storeOrder])
-                    @endif
+                {{-- Tombol hapus untuk pesanan pending --}}
+                @if($storeOrder->status == App\Models\StoreOrder::STATUS_PENDING)
+                <button type="button"
+                        class="btn btn-outline-danger ms-2"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteOrderModal">
+                    <i class="fas fa-trash me-2"></i>Hapus Pesanan
+                </button>
+                @endif
+            </div>
 
-                    @if(Auth::user()->hasRole(['owner', 'admin_back_office']) && $storeOrder->status == 'confirmed_by_admin')
-                    <form action="{{ route('store-orders.forward', $storeOrder->id) }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-arrow-right me-1"></i> Teruskan ke Gudang
-                        </button>
-                    </form>
-                    @endif
-
-                    @if(Auth::user()->hasRole('admin_gudang') && $storeOrder->status == 'forwarded_to_warehouse')
-                    <a href="{{ route('warehouse.store-orders.shipment.create', $storeOrder->id) }}" class="btn btn-info">
-                        <i class="fas fa-truck me-1"></i> Buat Pengiriman
-                    </a>
-                    @endif
-
-                    @if(Auth::user()->hasRole('admin_store') && $storeOrder->status == 'shipped')
-                    <form action="{{ route('store.orders.confirm-delivery', $storeOrder->id) }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-check-double me-1"></i> Konfirmasi Penerimaan
-                        </button>
-                    </form>
-                    @endif
-                </div>
+            <div>
+                @if($storeOrder->status == 'shipped')
+                <button type="button" class="btn btn-success btn-lg" data-bs-toggle="modal" data-bs-target="#confirmDeliveryModal">
+                    <i class="fas fa-check-double me-2"></i>Konfirmasi Penerimaan
+                </button>
+                @endif
             </div>
         </div>
     </div>
+</div>
+
+{{-- Modal Delete Order --}}
+@if($storeOrder->status == App\Models\StoreOrder::STATUS_PENDING)
+<div class="modal fade" id="deleteOrderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>Hapus Pesanan
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Peringatan!</strong> Tindakan ini akan menghapus pesanan secara permanen dan tidak dapat dibatalkan.
+                </div>
+
+                <div class="mb-3">
+                    <strong>Pesanan yang akan dihapus:</strong><br>
+                    <div class="card mt-2">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">No. Pesanan:</small><br>
+                                    <strong>{{ $storeOrder->order_number }}</strong>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Total:</small><br>
+                                    <strong>Rp {{ number_format($storeOrder->total_amount, 0, ',', '.') }}</strong>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-6">
+                                    <small class="text-muted">Tanggal:</small><br>
+                                    {{ $storeOrder->date->format('d/m/Y') }}
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Jumlah Item:</small><br>
+                                    {{ $storeOrder->storeOrderDetails->count() }} item
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmDeleteCheckbox">
+                    <label class="form-check-label" for="confirmDeleteCheckbox">
+                        Saya memahami bahwa pesanan ini akan dihapus permanen
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <form action="{{ route('store.orders.destroy', $storeOrder->id) }}" method="POST" class="d-inline">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger" id="deleteOrderBtn" disabled>
+                        <i class="fas fa-trash me-1"></i>Ya, Hapus Pesanan
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 </div>
 @endsection
 

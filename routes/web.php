@@ -110,6 +110,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('store/orders/create', [StoreClientOrderController::class, 'create'])->name('store.orders.create');
         Route::post('store/orders', [StoreClientOrderController::class, 'store'])->name('store.orders.store');
         Route::get('store/orders/{id}', [StoreClientOrderController::class, 'show'])->name('store.orders.show');
+        Route::delete('store/orders/{id}', [StoreClientOrderController::class, 'destroy'])->name('store.orders.destroy');
         Route::post('store/orders/{id}/confirm-delivery', [StoreClientOrderController::class, 'confirmDelivery'])->name('store.orders.confirm-delivery');
     });
 

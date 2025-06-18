@@ -27,14 +27,16 @@
     </div>
 
     @if(session('success'))
-    <div class="alert alert-success">
-        {{ session('success') }}
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     @endif
 
     @if(session('error'))
-    <div class="alert alert-danger">
-        {{ session('error') }}
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="fas fa-exclamation-triangle me-2"></i>{{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     @endif
 
@@ -81,19 +83,34 @@
                         {{-- Pengecekan akses: cabang hanya bisa lihat pesanan sendiri --}}
                         @if(!Auth::user()->store_id || Auth::user()->store_id == $order->store_id)
                         <tr>
-                            <td>{{ $order->order_number }}</td>
+                            <td>
+                                <span class="fw-bold">{{ $order->order_number }}</span>
+                            </td>
                             @if(!Auth::user()->store_id) {{-- Hanya tampilkan nama toko jika user adalah pusat --}}
                             <td>{{ $order->store->name }}</td>
                             @endif
                             <td>{{ $order->date->format('d/m/Y') }}</td>
                             <td>
                                 <div>
-                                    <strong>Rp {{ number_format($order->grand_total ?: $order->total_amount, 0, ',', '.') }}</strong>
-                                    @if($order->shipping_cost > 0)
+                                    @if($order->grand_total > 0)
+                                        {{-- Jika sudah ada grand total (sudah dikonfirmasi dengan ongkir) --}}
+                                        <strong>Rp {{ number_format($order->grand_total, 0, ',', '.') }}</strong>
                                         <small class="d-block text-muted">
                                             Subtotal: Rp {{ number_format($order->total_amount, 0, ',', '.') }}<br>
                                             Ongkir: Rp {{ number_format($order->shipping_cost, 0, ',', '.') }}
                                         </small>
+                                    @else
+                                        {{-- Jika belum ada grand total (belum dikonfirmasi) --}}
+                                        <strong>Rp {{ number_format($order->total_amount, 0, ',', '.') }}</strong>
+                                        @if($order->status == 'pending')
+                                            <small class="d-block text-warning">
+                                                <i class="fas fa-clock me-1"></i>Belum termasuk ongkir
+                                            </small>
+                                        @elseif($order->shipping_cost == 0 && $order->status != 'pending')
+                                            <small class="d-block text-success">
+                                                <i class="fas fa-check me-1"></i>Ongkir: Gratis
+                                            </small>
+                                        @endif
                                     @endif
                                 </div>
                             </td>
@@ -114,9 +131,13 @@
                             </td>
                             <td>
                                 @if($order->payment_type == 'cash')
-                                    <span class="badge bg-success bg-opacity-10 text-success">Tunai</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success">
+                                        <i class="fas fa-money-bill me-1"></i>Tunai
+                                    </span>
                                 @elseif($order->payment_type == 'credit')
-                                    <span class="badge bg-warning bg-opacity-10 text-warning">Kredit</span>
+                                    <span class="badge bg-warning bg-opacity-10 text-warning">
+                                        <i class="fas fa-credit-card me-1"></i>Kredit
+                                    </span>
                                     @if($order->due_date)
                                     <small class="d-block text-muted">Jatuh tempo: {{ $order->due_date->format('d/m/Y') }}</small>
                                     @endif
@@ -124,7 +145,9 @@
                                     <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ ucfirst($order->payment_type ?? 'N/A') }}</span>
                                 @endif
                             </td>
-                            <td>{{ $order->createdBy->name }}</td>
+                            <td>
+                                <i class="fas fa-user me-1 text-muted"></i>{{ $order->createdBy->name }}
+                            </td>
                             <td>
                                 <div class="btn-group">
                                     <a href="{{ route('store-orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Lihat Detail">
@@ -165,13 +188,76 @@
                                         </button>
                                     </form>
                                     @endif
+
+                                    {{-- Tombol hapus hanya untuk pesanan pending dan admin store --}}
+                                    @if(Auth::user()->hasRole('admin_store') && $order->status == App\Models\StoreOrder::STATUS_PENDING)
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteModal{{ $order->id }}"
+                                            title="Hapus Pesanan">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    @endif
                                 </div>
+
+                                {{-- Modal Delete untuk setiap pesanan --}}
+                                @if(Auth::user()->hasRole('admin_store') && $order->status == App\Models\StoreOrder::STATUS_PENDING)
+                                <div class="modal fade" id="deleteModal{{ $order->id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">
+                                                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>Konfirmasi Hapus
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="alert alert-warning">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    <strong>Perhatian!</strong> Tindakan ini tidak dapat dibatalkan.
+                                                </div>
+                                                <p>Apakah Anda yakin ingin menghapus pesanan <strong>{{ $order->order_number }}</strong>?</p>
+                                                <div class="mb-3">
+                                                    <strong>Detail Pesanan:</strong><br>
+                                                    <small class="text-muted">
+                                                        Total: Rp {{ number_format($order->total_amount, 0, ',', '.') }}<br>
+                                                        Tanggal: {{ $order->date->format('d/m/Y') }}<br>
+                                                        Status: {{ ucfirst($order->status) }}
+                                                    </small>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="confirmDeleteCheckbox{{ $order->id }}">
+                                                    <label class="form-check-label" for="confirmDeleteCheckbox{{ $order->id }}">
+                                                        Saya memahami bahwa pesanan ini akan dihapus permanen
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                                <form action="{{ route('store.orders.destroy', $order->id) }}" method="POST" class="d-inline">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-danger" id="deleteBtn{{ $order->id }}" disabled>
+                                                        <i class="fas fa-trash me-1"></i>Ya, Hapus
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
                             </td>
                         </tr>
                         @endif
                         @empty
                         <tr>
-                            <td colspan="{{ Auth::user()->store_id ? '7' : '8' }}" class="text-center">Tidak ada pesanan ditemukan.</td>
+                            <td colspan="{{ Auth::user()->store_id ? '7' : '8' }}" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                                    <p>Tidak ada pesanan ditemukan.</p>
+                                </div>
+                            </td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -194,6 +280,29 @@
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
         });
+
+        // Handle delete confirmation checkboxes
+        @foreach($storeOrders as $order)
+            @if(Auth::user()->hasRole('admin_store') && $order->status == App\Models\StoreOrder::STATUS_PENDING)
+            const confirmDeleteCheckbox{{ $order->id }} = document.getElementById('confirmDeleteCheckbox{{ $order->id }}');
+            const deleteBtn{{ $order->id }} = document.getElementById('deleteBtn{{ $order->id }}');
+
+            if (confirmDeleteCheckbox{{ $order->id }} && deleteBtn{{ $order->id }}) {
+                confirmDeleteCheckbox{{ $order->id }}.addEventListener('change', function() {
+                    deleteBtn{{ $order->id }}.disabled = !this.checked;
+                });
+            }
+            @endif
+        @endforeach
+
+        // Auto-dismiss alerts after 5 seconds
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
     });
 </script>
 @endsection
