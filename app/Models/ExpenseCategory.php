@@ -25,4 +25,33 @@ class ExpenseCategory extends Model
     {
         return $this->hasMany(Expense::class, 'category_id');
     }
+
+    /**
+     * Helper method untuk mencari kategori Biaya Operasional
+     */
+    public static function findOperationalCategory()
+    {
+        return self::where(function($query) {
+                $query->where('name', 'Biaya Operasional')
+                    ->orWhere('name', 'LIKE', '%operasional%');
+            })
+            ->whereNull('store_id')
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Helper method untuk mencari kategori Beban Biaya Transportasi
+     */
+    public static function findTransportationCategory()
+    {
+        return self::where(function($query) {
+                $query->where('name', 'Beban Biaya Transportasi')
+                    ->orWhere('name', 'LIKE', '%transportasi%')
+                    ->orWhere('name', 'LIKE', '%transport%');
+            })
+            ->whereNull('store_id')
+            ->where('is_active', true)
+            ->first();
+    }
 }

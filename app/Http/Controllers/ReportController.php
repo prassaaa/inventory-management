@@ -387,23 +387,46 @@ class ReportController extends Controller
             ->where('status', '!=', 'pending');
         $purchases = $purchasesQuery->sum('total_amount');
 
-        // Get expenses
+        // Get expenses with category filtering based on user role
         $expensesQuery = Expense::with('category')
-            ->whereBetween('date', [$startDate, $endDate]);
+            ->join('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
+            ->whereBetween('expenses.date', [$startDate, $endDate]);
+
+        // Filter expenses by store if applicable
         if ($storeId) {
-            $expensesQuery->where('store_id', $storeId);
+            $expensesQuery->where('expenses.store_id', $storeId);
         }
-        $expenseItems = $expensesQuery->get();
+
+        // Apply category filtering based on user role
+        if ($canSelectStore && !$storeId) {
+            // Pusat tanpa filter store: Tampilkan semua kategori kecuali Beban Biaya Transportasi (outlet)
+            $expensesQuery->where(function($query) {
+                $query->whereRaw("LOWER(expense_categories.name) NOT LIKE '%transportasi%'")
+                    ->whereRaw("LOWER(expense_categories.name) NOT LIKE '%transport%'");
+            });
+        } elseif ($storeId || !$canSelectStore) {
+            // Outlet atau Pusat dengan filter store: Tidak tampilkan Biaya Operasional (pusat)
+            $expensesQuery->where(function($query) {
+                $query->whereRaw("LOWER(expense_categories.name) NOT LIKE '%operasional%'");
+            });
+        }
+
+        $expenseItems = $expensesQuery->select('expenses.*')->get();
         $expenses = $expenseItems->sum('amount');
+
+        // TAMBAHAN: Logging untuk debugging kategori pengeluaran
+        Log::info('Expense categories in finance report', [
+            'categories' => $expenseItems->pluck('category.name', 'category_id')->toArray(),
+            'store_id' => $storeId,
+            'can_select_store' => $canSelectStore,
+            'date_range' => "$startDate to $endDate"
+        ]);
 
         // Calculate gross profit
         $grossProfit = $sales - $purchases;
 
         // Calculate net profit
         $netProfit = $grossProfit - $expenses;
-
-        // Get income and expense chart data
-        $chart_data = $this->getFinanceChartData($startDate, $endDate, $storeId);
 
         // Get expense breakdown
         $expense_categories = $expenseItems
@@ -413,11 +436,40 @@ class ReportController extends Controller
             ->map(function($items, $categoryName) {
                 return [
                     'category' => $categoryName,
-                    'total' => $items->sum('amount')
+                    'total' => $items->sum('amount'),
+                    'has_shipping' => (
+                        str_contains(strtolower($categoryName), 'operasional') ||
+                        str_contains(strtolower($categoryName), 'transportasi')
+                    )
                 ];
             })
             ->sortByDesc('total')
             ->values();
+
+        // TAMBAHAN: Logging untuk memastikan ongkir terkategori dengan benar
+        $shippingExpenses = $expenseItems->filter(function($expense) {
+            return $expense->category && (
+                str_contains(strtolower($expense->category->name), 'operasional') ||
+                str_contains(strtolower($expense->category->name), 'transportasi')
+            );
+        });
+
+        Log::info('Shipping expenses in finance report', [
+            'count' => $shippingExpenses->count(),
+            'total' => $shippingExpenses->sum('amount'),
+            'details' => $shippingExpenses->map(function($e) {
+                return [
+                    'id' => $e->id,
+                    'category' => $e->category ? $e->category->name : 'N/A',
+                    'amount' => $e->amount,
+                    'description' => $e->description,
+                    'store_id' => $e->store_id
+                ];
+            })->toArray()
+        ]);
+
+        // Get income and expense chart data
+        $chart_data = $this->getFinanceChartData($startDate, $endDate, $storeId);
 
         // Get total payables & receivables for summary cards (hanya untuk pusat)
         $totalPayables = 0;
@@ -510,18 +562,49 @@ class ReportController extends Controller
         })
         ->sum(DB::raw('sale_details.quantity * products.purchase_price'));
 
-        // Get expenses
-        $expenseBreakdown = Expense::select('expense_categories.name as category', DB::raw('SUM(expenses.amount) as total'))
+        // Get expenses with filtering based on user role
+        $expenseBreakdownQuery = Expense::select(
+                'expense_categories.name as category',
+                DB::raw('SUM(expenses.amount) as total'),
+                DB::raw('LOWER(expense_categories.name) LIKE "%operasional%" OR LOWER(expense_categories.name) LIKE "%transportasi%" as is_shipping')
+            )
             ->join('expense_categories', 'expenses.category_id', '=', 'expense_categories.id')
             ->whereBetween('expenses.date', [$startDate, $endDate]);
 
         if ($storeId) {
-            $expenseBreakdown->where('expenses.store_id', $storeId);
+            $expenseBreakdownQuery->where('expenses.store_id', $storeId);
         }
 
-        $expenseBreakdown = $expenseBreakdown->groupBy('expense_categories.name')
+        // Apply category filtering based on user role
+        if ($canSelectStore && !$storeId) {
+            // Pusat tanpa filter store: Tampilkan semua kategori kecuali Beban Biaya Transportasi (outlet)
+            $expenseBreakdownQuery->where(function($query) {
+                $query->whereRaw("LOWER(expense_categories.name) NOT LIKE '%transportasi%'")
+                    ->whereRaw("LOWER(expense_categories.name) NOT LIKE '%transport%'");
+            });
+        } elseif ($storeId || !$canSelectStore) {
+            // Outlet atau Pusat dengan filter store: Tidak tampilkan Biaya Operasional (pusat)
+            $expenseBreakdownQuery->where(function($query) {
+                $query->whereRaw("LOWER(expense_categories.name) NOT LIKE '%operasional%'");
+            });
+        }
+
+        $expenseBreakdown = $expenseBreakdownQuery
+            ->groupBy('expense_categories.name', 'is_shipping')
             ->orderByDesc('total')
             ->get();
+
+        // Log shipping related expenses for debugging
+        $shippingExpenses = $expenseBreakdown->filter(function($item) {
+            return $item->is_shipping;
+        });
+
+        Log::info('Shipping expenses in profit-loss report', [
+            'total_shipping' => $shippingExpenses->sum('total'),
+            'breakdown' => $shippingExpenses->toArray(),
+            'can_select_store' => $canSelectStore,
+            'store_id' => $storeId
+        ]);
 
         // Total expenses
         $expenses = $expenseBreakdown->sum('total');

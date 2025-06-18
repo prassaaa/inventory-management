@@ -367,8 +367,15 @@
                     <tbody>
                         @if(isset($expenseBreakdown) && $expenseBreakdown->count() > 0)
                             @foreach($expenseBreakdown as $expense)
-                            <tr>
-                                <td>{{ ucfirst($expense->category) }}</td>
+                            <tr class="{{ $expense->is_shipping ? 'table-info' : '' }}">
+                                <td>
+                                    {{ ucfirst($expense->category) }}
+                                    @if(str_contains(strtolower($expense->category), 'operasional'))
+                                        <small class="text-muted d-block">Termasuk ongkir untuk pesanan dari pusat</small>
+                                    @elseif(str_contains(strtolower($expense->category), 'transportasi'))
+                                        <small class="text-muted d-block">Termasuk ongkir untuk pesanan ke outlet</small>
+                                    @endif
+                                </td>
                                 <td>Rp {{ number_format($expense->total, 0, ',', '.') }}</td>
                                 <td>{{ ($expenses ?? 0) > 0 ? number_format(($expense->total / ($expenses ?? 1)) * 100, 2) : 0 }}%</td>
                                 <td>{{ ($totalSales ?? 0) > 0 ? number_format(($expense->total / ($totalSales ?? 1)) * 100, 2) : 0 }}%</td>
@@ -398,6 +405,30 @@
                     @endif
                 </table>
             </div>
+
+            @if(isset($expenseBreakdown) && $expenseBreakdown->where('is_shipping', true)->count() > 0)
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Informasi Biaya Pengiriman (Ongkir):</strong>
+                <ul class="mb-0 mt-1">
+                    <li>Baris yang disorot <span class="badge bg-info">biru</span> menunjukkan kategori yang mencakup biaya ongkir.</li>
+                    <li><strong>Biaya Operasional</strong> mencakup ongkir yang dibayarkan oleh kantor pusat saat konfirmasi pesanan.</li>
+                    <li><strong>Beban Biaya Transportasi</strong> mencakup ongkir yang ditanggung oleh outlet saat penerimaan barang.</li>
+                </ul>
+            </div>
+            @endif
+
+            @if($canSelectStore && !request('store_id'))
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Informasi:</strong> Sebagai kantor pusat, Anda hanya melihat kategori pengeluaran pusat termasuk Biaya Operasional (ongkir). Beban Biaya Transportasi untuk outlet tidak ditampilkan.
+                </div>
+            @elseif(!$canSelectStore || request('store_id'))
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Informasi:</strong> Untuk outlet, hanya kategori pengeluaran outlet yang ditampilkan termasuk Beban Biaya Transportasi (ongkir). Biaya Operasional pusat tidak ditampilkan.
+                </div>
+            @endif
         </div>
     </div>
 </div>

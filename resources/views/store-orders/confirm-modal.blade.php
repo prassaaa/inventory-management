@@ -5,7 +5,9 @@
             <form action="{{ route('store-orders.confirm', $storeOrder->id) }}" method="POST">
                 @csrf
                 <div class="modal-header">
-                    <h5 class="modal-title">Konfirmasi Pesanan</h5>
+                    <h5 class="modal-title">
+                        <i class="fas fa-check-circle text-success me-2"></i>Konfirmasi Pesanan
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -20,7 +22,10 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="shipping_cost_{{ $storeOrder->id }}" class="form-label">Ongkos Kirim <span class="text-danger">*</span></label>
+                        <label for="shipping_cost_{{ $storeOrder->id }}" class="form-label">
+                            <i class="fas fa-truck me-1 text-primary"></i>Ongkos Kirim
+                            <span class="text-danger">*</span>
+                        </label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
                             <input type="number"
@@ -37,7 +42,13 @@
                         @error('shipping_cost')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
-                        <small class="text-muted">Masukkan ongkos kirim untuk pesanan ini</small>
+                        <small class="text-muted">
+                            Masukkan ongkos kirim untuk pesanan ini.
+                            <span class="text-info">
+                                <i class="fas fa-info-circle"></i>
+                                Akan dicatat sebagai <strong>Biaya Operasional</strong> untuk kantor pusat.
+                            </span>
+                        </small>
                     </div>
 
                     <div class="alert alert-info">
@@ -62,11 +73,18 @@
 
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Perhatian:</strong> Setelah dikonfirmasi, ongkir tidak dapat diubah dan akan menjadi bagian dari total tagihan.
+                        <strong>Perhatian:</strong>
+                        <ul class="mb-0 ps-3">
+                            <li>Setelah dikonfirmasi, ongkir tidak dapat diubah dan akan menjadi bagian dari total tagihan.</li>
+                            <li>Ongkir akan dicatat sebagai <strong>Biaya Operasional</strong> untuk kantor pusat saat konfirmasi.</li>
+                            <li>Saat penerimaan barang, ongkir akan dicatat sebagai <strong>Beban Biaya Transportasi</strong> untuk outlet.</li>
+                        </ul>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Batal
+                    </button>
                     <button type="submit" class="btn btn-success">
                         <i class="fas fa-check me-1"></i> Konfirmasi Pesanan
                     </button>

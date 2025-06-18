@@ -12,6 +12,8 @@ use App\Models\Store;
 use App\Models\Unit;
 use App\Models\StockStore;
 use App\Models\AccountReceivable;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -214,6 +216,38 @@ class BackOfficeStoreOrderController extends Controller
                 ]);
             }
 
+            // CATAT ONGKIR SEBAGAI BIAYA OPERASIONAL UNTUK KANTOR PUSAT
+            // Gunakan helper method untuk mencari kategori
+            $operationalCategory = ExpenseCategory::findOperationalCategory();
+
+            if ($operationalCategory) {
+                // Membuat catatan pengeluaran untuk ongkir sebagai biaya operasional
+                Expense::create([
+                    'date' => Carbon::now(),
+                    'amount' => $validated['shipping_cost'],
+                    'description' => 'Ongkir untuk pesanan ' . $storeOrder->order_number,
+                    'category_id' => $operationalCategory->id,
+                    'store_id' => null, // Karena ini pengeluaran pusat
+                    'created_by' => Auth::id(),
+                    'updated_by' => Auth::id()
+                ]);
+
+                // Log aktivitas pencatatan ongkir
+                \Log::info('Ongkir dicatat sebagai Biaya Operasional', [
+                    'order_id' => $storeOrder->id,
+                    'order_number' => $storeOrder->order_number,
+                    'shipping_cost' => $validated['shipping_cost'],
+                    'expense_category' => $operationalCategory->name,
+                    'recorded_by' => Auth::user()->name
+                ]);
+            } else {
+                // Log warning jika kategori tidak ditemukan
+                \Log::warning('Kategori Biaya Operasional tidak ditemukan, ongkir tidak dicatat', [
+                    'order_id' => $storeOrder->id,
+                    'shipping_cost' => $validated['shipping_cost']
+                ]);
+            }
+
             // Log aktivitas untuk debugging
             \Log::info('Pesanan dikonfirmasi dengan ongkir', [
                 'order_id' => $storeOrder->id,
@@ -299,7 +333,7 @@ class BackOfficeStoreOrderController extends Controller
         }
     }
 
-    // Tambahkan method untuk konfirmasi penerimaan oleh toko
+    // method untuk konfirmasi penerimaan oleh toko
     public function confirmDelivery($id)
     {
         // Pastikan hanya admin store yang bisa konfirmasi penerimaan
@@ -352,6 +386,39 @@ class BackOfficeStoreOrderController extends Controller
                     'payment_date' => Carbon::now(),
                     'notes' => $receivable->notes . "\n" . date('d/m/Y') . ": Dibayar tunai pada saat pengiriman",
                     'updated_by' => Auth::id(),
+                ]);
+            }
+
+            // CATAT ONGKIR SEBAGAI BEBAN BIAYA TRANSPORTASI UNTUK OUTLET
+            // Gunakan helper method untuk mencari kategori
+            $transportCategory = ExpenseCategory::findTransportationCategory();
+
+            if ($transportCategory && $storeOrder->shipping_cost > 0) {
+                Expense::create([
+                    'date' => Carbon::now(),
+                    'amount' => $storeOrder->shipping_cost,
+                    'description' => 'Beban transportasi untuk pesanan ' . $storeOrder->order_number,
+                    'category_id' => $transportCategory->id,
+                    'store_id' => Auth::user()->store_id,
+                    'created_by' => Auth::id(),
+                    'updated_by' => Auth::id()
+                ]);
+
+                // Log aktivitas pencatatan beban transportasi
+                \Log::info('Ongkir dicatat sebagai Beban Biaya Transportasi', [
+                    'order_id' => $storeOrder->id,
+                    'order_number' => $storeOrder->order_number,
+                    'shipping_cost' => $storeOrder->shipping_cost,
+                    'expense_category' => $transportCategory->name,
+                    'store_id' => Auth::user()->store_id,
+                    'recorded_by' => Auth::user()->name
+                ]);
+            } else {
+                // Log warning jika kategori tidak ditemukan atau shipping_cost = 0
+                \Log::warning('Kategori Beban Transportasi tidak ditemukan atau ongkir = 0, beban tidak dicatat', [
+                    'order_id' => $storeOrder->id,
+                    'shipping_cost' => $storeOrder->shipping_cost ?? 0,
+                    'category_found' => $transportCategory ? true : false
                 ]);
             }
 
