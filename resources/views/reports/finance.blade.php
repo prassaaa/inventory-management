@@ -409,7 +409,15 @@
                                 <td class="text-end">Rp {{ number_format($purchases, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
-                                <td>Biaya Operasional</td>
+                                <td>
+                                    @if($canSelectStore && !request('store_id'))
+                                        Biaya Operasional
+                                        <small class="text-muted d-block">Termasuk ongkir yang dibayarkan oleh kantor pusat</small>
+                                    @else
+                                        Beban Biaya Transportasi
+                                        <small class="text-muted d-block">Termasuk ongkir yang ditanggung oleh outlet</small>
+                                    @endif
+                                </td>
                                 <td class="text-end">Rp {{ number_format($expenses, 0, ',', '.') }}</td>
                             </tr>
                             <tr>
