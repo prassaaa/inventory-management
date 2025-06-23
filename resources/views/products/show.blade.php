@@ -319,21 +319,29 @@
                 </div>
             </div>
 
+            @if(!Auth::user()->store_id)
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex align-items-center">
                     <i class="fas fa-history text-primary me-2"></i>
-                    <h6 class="m-0 fw-bold text-primary">Transaksi Terbaru</h6>
+                    <h6 class="m-0 fw-bold text-primary">
+                        Transaksi Terbaru
+                        <span class="badge bg-primary-light text-primary ms-2">Semua Toko</span>
+                    </h6>
                 </div>
                 <div class="card-body">
                     <ul class="nav nav-tabs" id="myTab" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="purchases-tab" data-bs-toggle="tab" data-bs-target="#purchases" type="button" role="tab" aria-controls="purchases" aria-selected="true">
-                                <i class="fas fa-shopping-cart me-1"></i> Pembelian
+                                <i class="fas fa-shopping-cart me-1"></i> 
+                                Pembelian 
+                                <span class="badge bg-secondary ms-1">{{ $recentPurchases->count() }}</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="sales-tab" data-bs-toggle="tab" data-bs-target="#sales" type="button" role="tab" aria-controls="sales" aria-selected="false">
-                                <i class="fas fa-cash-register me-1"></i> Penjualan
+                                <i class="fas fa-cash-register me-1"></i> 
+                                Penjualan
+                                <span class="badge bg-secondary ms-1">{{ $recentSales->count() }}</span>
                             </button>
                         </li>
                     </ul>
@@ -356,9 +364,13 @@
                                             <tr>
                                                 <td>{{ $purchase->purchase->date->format('d/m/Y') }}</td>
                                                 <td>
-                                                    <a href="{{ route('purchases.show', $purchase->purchase) }}" class="text-primary">
+                                                    @can('view purchases')
+                                                        <a href="{{ route('purchases.show', $purchase->purchase) }}" class="text-primary">
+                                                            {{ $purchase->purchase->invoice_number }}
+                                                        </a>
+                                                    @else
                                                         {{ $purchase->purchase->invoice_number }}
-                                                    </a>
+                                                    @endcan
                                                 </td>
                                                 <td>{{ $purchase->purchase->supplier->name }}</td>
                                                 <td>{{ floatval($purchase->quantity) == intval($purchase->quantity) ? intval($purchase->quantity) : floatval($purchase->quantity) }} {{ $purchase->unit->name }}</td>
@@ -377,6 +389,10 @@
                         </div>
                         <div class="tab-pane fade" id="sales" role="tabpanel" aria-labelledby="sales-tab">
                             @if($recentSales->count() > 0)
+                                <div class="alert alert-primary">
+                                    <small><i class="fas fa-building me-1"></i> 
+                                    Menampilkan penjualan dari semua toko</small>
+                                </div>
                                 <div class="table-responsive">
                                     <table class="table table-hover">
                                         <thead class="table-light">
@@ -393,9 +409,13 @@
                                             <tr>
                                                 <td>{{ $sale->sale->date->format('d/m/Y') }}</td>
                                                 <td>
-                                                    <a href="{{ route('sales.show', $sale->sale) }}" class="text-primary">
+                                                    @can('view sales')
+                                                        <a href="{{ route('sales.show', $sale->sale) }}" class="text-primary">
+                                                            {{ $sale->sale->invoice_number }}
+                                                        </a>
+                                                    @else
                                                         {{ $sale->sale->invoice_number }}
-                                                    </a>
+                                                    @endcan
                                                 </td>
                                                 <td>{{ $sale->sale->store->name }}</td>
                                                 <td>{{ floatval($sale->quantity) == intval($sale->quantity) ? intval($sale->quantity) : floatval($sale->quantity) }} {{ $sale->unit->name }}</td>
@@ -415,6 +435,7 @@
                     </div>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 </div>

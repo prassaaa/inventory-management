@@ -18,6 +18,7 @@ use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
 use App\Models\Store;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
@@ -183,19 +184,29 @@ class ProductController extends Controller
     {
         $product->load(['category', 'baseUnit', 'productUnits.unit', 'stockWarehouses', 'storeStocks.store']);
 
-        // Get recent purchase details
-        $recentPurchases = PurchaseDetail::with(['purchase.supplier', 'unit'])
-            ->where('product_id', $product->id)
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get();
+        // Cek apakah user adalah pusat (tidak punya store_id)
+        $userStoreId = Auth::user()->store_id;
+        
+        // Hanya ambil data transaksi jika user adalah pusat
+        if (!$userStoreId) {
+            // Get recent purchase details (hanya untuk pusat)
+            $recentPurchases = PurchaseDetail::with(['purchase.supplier', 'unit'])
+                ->where('product_id', $product->id)
+                ->orderBy('created_at', 'desc')
+                ->take(10)
+                ->get();
 
-        // Get recent sale details
-        $recentSales = SaleDetail::with(['sale.store', 'unit'])
-            ->where('product_id', $product->id)
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get();
+            // Get recent sale details (hanya untuk pusat - semua toko)
+            $recentSales = SaleDetail::with(['sale.store', 'unit'])
+                ->where('product_id', $product->id)
+                ->orderBy('created_at', 'desc')
+                ->take(10)
+                ->get();
+        } else {
+            // User outlet tidak perlu data transaksi
+            $recentPurchases = collect();
+            $recentSales = collect();
+        }
 
         return view('products.show', compact('product', 'recentPurchases', 'recentSales'));
     }
