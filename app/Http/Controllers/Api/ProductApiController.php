@@ -176,6 +176,78 @@ class ProductApiController extends Controller
     }
 
     /**
+     * Get available units for a product
+     */
+    public function getProductUnits(Request $request)
+    {
+        $productId = $request->input('product_id');
+
+        Log::info('API: Get product units request', [
+            'product_id' => $productId
+        ]);
+
+        if (!$productId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product ID diperlukan'
+            ]);
+        }
+
+        try {
+            $product = Product::with(['baseUnit', 'productUnits.unit'])->find($productId);
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Produk tidak ditemukan'
+                ]);
+            }
+
+            $units = [];
+
+            // Unit dasar
+            $units[] = [
+                'id' => $product->base_unit_id,
+                'name' => $product->baseUnit->name,
+                'is_base_unit' => true,
+                'conversion_value' => 1
+            ];
+
+            // Unit tambahan
+            foreach ($product->productUnits as $productUnit) {
+                $units[] = [
+                    'id' => $productUnit->unit_id,
+                    'name' => $productUnit->unit->name,
+                    'is_base_unit' => false,
+                    'conversion_value' => $productUnit->conversion_value
+                ];
+            }
+
+            Log::info('API: Product units retrieved', [
+                'product_id' => $productId,
+                'units_count' => count($units),
+                'units' => $units
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'units' => $units,
+                'base_unit_id' => $product->base_unit_id
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting product units', [
+                'product_id' => $productId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get all prices for a product in specific store
      */
     public function getProductStorePrices(Request $request)

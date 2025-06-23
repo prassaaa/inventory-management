@@ -23,4 +23,5 @@ Route::prefix('products')->group(function () {
     Route::get('/ingredients', [ProductApiController::class, 'getIngredients']);
     Route::get('/store-price', [ProductApiController::class, 'getStorePrice']);
     Route::get('/store-prices', [ProductApiController::class, 'getProductStorePrices']);
+    Route::get('/units', [ProductApiController::class, 'getProductUnits']);
 });

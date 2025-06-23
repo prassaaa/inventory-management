@@ -81,9 +81,6 @@
                                         <td>
                                             <select name="unit_id[]" class="form-select unit-select" required>
                                                 <option value="">Pilih Satuan</option>
-                                                @foreach($units as $unit)
-                                                    <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                                                @endforeach
                                             </select>
                                         </td>
                                         <td>
@@ -162,6 +159,55 @@
             });
         }
 
+        // Event handler untuk perubahan produk
+        $(document).on('change', '.product-select', function() {
+            var productId = $(this).val();
+            var $row = $(this).closest('tr');
+            var $unitSelect = $row.find('.unit-select');
+            
+            // Reset unit select
+            $unitSelect.empty().append('<option value="">Pilih Satuan</option>');
+            
+            if (productId) {
+                // Ambil units yang tersedia untuk produk ini
+                $.ajax({
+                    url: '{{ url("/api/products/units") }}',
+                    type: 'GET',
+                    data: {
+                        product_id: productId
+                    },
+                    success: function(response) {
+                        if (response.success && response.units) {
+                            // Populate unit options
+                            $.each(response.units, function(index, unit) {
+                                $unitSelect.append(
+                                    '<option value="' + unit.id + '">' + unit.name + '</option>'
+                                );
+                            });
+                            
+                            // Auto-select base unit (unit pertama)
+                            if (response.base_unit_id) {
+                                $unitSelect.val(response.base_unit_id);
+                            }
+                            
+                            // Refresh select2 if enabled
+                            if (typeof $.fn.select2 !== 'undefined') {
+                                $unitSelect.trigger('change.select2');
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error fetching product units:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Gagal mengambil data satuan produk'
+                        });
+                    }
+                });
+            }
+        });
+
         // Tampilkan/sembunyikan field jatuh tempo berdasarkan metode pembayaran
         $('#payment_type').change(function() {
             if ($(this).val() === 'credit') {
@@ -193,9 +239,6 @@
                     <td>
                         <select name="unit_id[]" class="form-select unit-select" required>
                             <option value="">Pilih Satuan</option>
-                            @foreach($units as $unit)
-                                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                            @endforeach
                         </select>
                     </td>
                     <td>
@@ -229,7 +272,15 @@
             if ($('.order-item-row').length > 1) {
                 $(this).closest('tr').remove();
             } else {
-                alert('Pesanan harus memiliki minimal 1 item.');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Peringatan',
+                        text: 'Pesanan harus memiliki minimal 1 item.'
+                    });
+                } else {
+                    alert('Pesanan harus memiliki minimal 1 item.');
+                }
             }
         });
     });
