@@ -197,15 +197,26 @@
                         <canvas id="topProductsChart"></canvas>
                     </div>
                     <div class="mt-4 text-center small">
-                        <span class="me-2">
-                            <i class="fas fa-circle text-primary"></i> Produk 1
-                        </span>
-                        <span class="me-2">
-                            <i class="fas fa-circle text-success"></i> Produk 2
-                        </span>
-                        <span class="me-2">
-                            <i class="fas fa-circle text-info"></i> Produk 3
-                        </span>
+                        @if(isset($topProductsData) && count($topProductsData['labels']) > 0 && $topProductsData['labels'][0] != 'Tidak ada data')
+                            @foreach($topProductsData['labels'] as $index => $productName)
+                                @php
+                                    $colors = ['text-primary', 'text-success', 'text-info', 'text-warning', 'text-danger'];
+                                    $colorClass = $colors[$index % count($colors)];
+                                    $shortName = strlen($productName) > 15 ? substr($productName, 0, 15) . '...' : $productName;
+                                @endphp
+                                <span class="me-2">
+                                    <i class="fas fa-circle {{ $colorClass }}"></i> 
+                                    {{ $shortName }}
+                                    @if(!$loop->last && $loop->index < 4), @endif
+                                </span>
+                                @if($loop->index >= 4) @break @endif
+                            @endforeach
+                        @else
+                            <span class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i> 
+                                Belum ada data penjualan produk
+                            </span>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -554,18 +565,20 @@
     var topProductsChart = new Chart(ctx2, {
         type: 'doughnut',
         data: {
-            labels: {!! isset($topProductsData) ? json_encode($topProductsData['labels']) : json_encode(['Produk A', 'Produk B', 'Produk C', 'Produk D', 'Produk E']) !!},
+            labels: {!! isset($topProductsData) ? json_encode($topProductsData['labels']) : json_encode(['Tidak ada data']) !!},
             datasets: [{
-                data: {!! isset($topProductsData) ? json_encode($topProductsData['data']) : json_encode([35, 25, 20, 15, 5]) !!},
+                data: {!! isset($topProductsData) ? json_encode($topProductsData['data']) : json_encode([1]) !!},
                 backgroundColor: ['#2563eb', '#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
                 hoverBackgroundColor: ['#1d4ed8', '#059669', '#2563eb', '#d97706', '#dc2626'],
                 hoverBorderColor: "rgba(234, 236, 244, 1)",
+                borderWidth: 2,
+                borderColor: '#ffffff'
             }],
         },
         options: {
             maintainAspectRatio: false,
             responsive: true,
-            cutout: '70%',
+            cutout: '60%',
             plugins: {
                 legend: {
                     display: false
@@ -579,6 +592,15 @@
                     yPadding: 15,
                     displayColors: false,
                     caretPadding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            var label = context.label || '';
+                            if (label && label !== 'Tidak ada data') {
+                                label += ': ' + context.parsed + ' terjual';
+                            }
+                            return label;
+                        }
+                    }
                 }
             }
         }

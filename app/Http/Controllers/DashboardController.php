@@ -219,37 +219,82 @@ class DashboardController extends Controller
                 ->join('sales', 'sale_details.sale_id', '=', 'sales.id')
                 ->select(
                     'products.name',
+                    'products.id as product_id',
                     DB::raw('SUM(sale_details.quantity) as total_sold')
-                );
+                )
+                ->where('products.is_active', true);
 
-            // Filter for store admin
-            if (Auth::user()->hasRole('admin_store') && Auth::user()->store_id) {
+            // Filter for store admin - hanya tampilkan data dari toko sendiri
+            if (Auth::user()->store_id) {
                 $query->where('sales.store_id', Auth::user()->store_id);
+                Log::info('Dashboard: Filtering top products for store_id: ' . Auth::user()->store_id);
             }
 
+            // Filter untuk 30 hari terakhir untuk data yang lebih relevan
+            $query->where('sales.date', '>=', Carbon::now()->subDays(30));
+
             $topProducts = $query->groupBy('products.id', 'products.name')
+                ->having('total_sold', '>', 0)
                 ->orderBy('total_sold', 'desc')
                 ->limit(5)
                 ->get();
 
-            foreach ($topProducts as $product) {
-                $labels[] = $product->name;
-                $data[] = (int)$product->total_sold;
+            Log::info('Dashboard: Top products query result count: ' . $topProducts->count());
+
+            if ($topProducts->count() > 0) {
+                foreach ($topProducts as $product) {
+                    $labels[] = $product->name;
+                    $data[] = (int)$product->total_sold;
+                }
+                
+                Log::info('Dashboard: Top products data found', [
+                    'labels' => $labels,
+                    'data' => $data
+                ]);
+            } else {
+                // Jika tidak ada data, coba tanpa filter tanggal
+                Log::info('Dashboard: No top products found in last 30 days, trying all time data');
+                
+                $allTimeQuery = DB::table('sale_details')
+                    ->join('products', 'sale_details.product_id', '=', 'products.id')
+                    ->join('sales', 'sale_details.sale_id', '=', 'sales.id')
+                    ->select(
+                        'products.name',
+                        'products.id as product_id',
+                        DB::raw('SUM(sale_details.quantity) as total_sold')
+                    )
+                    ->where('products.is_active', true);
+
+                if (Auth::user()->store_id) {
+                    $allTimeQuery->where('sales.store_id', Auth::user()->store_id);
+                }
+
+                $allTimeProducts = $allTimeQuery->groupBy('products.id', 'products.name')
+                    ->having('total_sold', '>', 0)
+                    ->orderBy('total_sold', 'desc')
+                    ->limit(5)
+                    ->get();
+
+                if ($allTimeProducts->count() > 0) {
+                    foreach ($allTimeProducts as $product) {
+                        $labels[] = $product->name;
+                        $data[] = (int)$product->total_sold;
+                    }
+                    
+                    Log::info('Dashboard: All time top products data found', [
+                        'labels' => $labels,
+                        'data' => $data
+                    ]);
+                } else {
+                    $labels = ['Tidak ada data'];
+                    $data = [0];
+                    Log::info('Dashboard: No top products data found at all');
+                }
             }
 
-            // Ensure we have data
-            if (empty($labels)) {
-                $labels = ['Tidak ada data'];
-                $data = [0];
-            }
-
-            // Log the data for debugging
-            Log::info('Top products data: ', [
-                'labels' => $labels,
-                'data' => $data
-            ]);
         } catch (\Exception $e) {
             Log::error('Error generating top products data: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
 
             // Default fallback data
             $labels = ['Tidak ada data'];
