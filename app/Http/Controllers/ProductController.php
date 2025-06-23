@@ -182,10 +182,22 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
-        $product->load(['category', 'baseUnit', 'productUnits.unit', 'stockWarehouses', 'storeStocks.store']);
-
         // Cek apakah user adalah pusat (tidak punya store_id)
         $userStoreId = Auth::user()->store_id;
+        
+        // Load relasi dasar
+        $product->load(['category', 'baseUnit', 'productUnits.unit', 'stockWarehouses']);
+        
+        // Load storeStocks berdasarkan role user
+        if (!$userStoreId) {
+            // User pusat: load semua stok toko
+            $product->load(['storeStocks.store']);
+        } else {
+            // User toko: load hanya stok toko mereka sendiri
+            $product->load(['storeStocks' => function($query) use ($userStoreId) {
+                $query->where('store_id', $userStoreId)->with('store');
+            }]);
+        }
         
         // Hanya ambil data transaksi jika user adalah pusat
         if (!$userStoreId) {

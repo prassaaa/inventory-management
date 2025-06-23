@@ -254,7 +254,7 @@
                         </div>
                         @endif
 
-                        <!-- Minimum Stok - Tetap ditampilkan untuk semua user -->
+                        <!-- Minimum Stok - Ditampilkan untuk semua user -->
                         <div class="{{ Auth::user()->store_id ? 'col-md-12' : 'col-md-6' }}">
                             <div class="card h-100">
                                 <div class="card-body p-3">
@@ -279,43 +279,83 @@
                         </div>
                     </div>
 
-                    <h6 class="fw-bold mb-3">Stok Toko</h6>
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Toko</th>
-                                    <th>Stok</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($product->storeStocks as $storeStock)
-                                <tr>
-                                    <td>{{ $storeStock->store->name }}</td>
-                                    <td>
-                                        @php
-                                            $storeQty = floatval($storeStock->quantity);
-                                            $formattedStoreQty = (floor($storeQty) == $storeQty) ? number_format($storeQty, 0, ',', '.') : number_format($storeQty, 2, ',', '.');
-                                        @endphp
-                                        {{ $formattedStoreQty }} {{ $product->baseUnit->name }}
-                                    </td>
-                                    <td>
-                                        @if($storeStock->quantity < $product->min_stock)
-                                            <span class="badge bg-danger-light text-danger">Stok Rendah</span>
-                                        @else
-                                            <span class="badge bg-success-light text-success">Tersedia</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="3" class="text-center py-3 text-muted">Belum ada informasi stok toko.</td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                    <!-- Stok Toko Section -->
+                    @if(!Auth::user()->store_id)
+                        <!-- User Pusat: Tampilkan semua stok toko -->
+                        <h6 class="fw-bold mb-3">Stok Toko</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Toko</th>
+                                        <th>Stok</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($product->storeStocks as $storeStock)
+                                    <tr>
+                                        <td>{{ $storeStock->store->name }}</td>
+                                        <td>
+                                            @php
+                                                $storeQty = floatval($storeStock->quantity);
+                                                $formattedStoreQty = (floor($storeQty) == $storeQty) ? number_format($storeQty, 0, ',', '.') : number_format($storeQty, 2, ',', '.');
+                                            @endphp
+                                            {{ $formattedStoreQty }} {{ $product->baseUnit->name }}
+                                        </td>
+                                        <td>
+                                            @if($storeStock->quantity < $product->min_stock)
+                                                <span class="badge bg-danger-light text-danger">Stok Rendah</span>
+                                            @else
+                                                <span class="badge bg-success-light text-success">Tersedia</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="3" class="text-center py-3 text-muted">Belum ada informasi stok toko.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <!-- User Toko: Tampilkan stok toko mereka sendiri -->
+                        @if($product->storeStocks->count() > 0)
+                            <h6 class="fw-bold mb-3">Stok Toko Anda</h6>
+                            <div class="card bg-info-light">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <p class="text-muted mb-1">{{ $product->storeStocks->first()->store->name }}</p>
+                                            <h4 class="mb-0 fw-bold {{ $product->storeStocks->first()->quantity < $product->min_stock ? 'text-danger' : 'text-dark' }}">
+                                                @php
+                                                    $storeQty = floatval($product->storeStocks->first()->quantity);
+                                                    $formattedStoreQty = (floor($storeQty) == $storeQty) ? number_format($storeQty, 0, ',', '.') : number_format($storeQty, 2, ',', '.');
+                                                @endphp
+                                                {{ $formattedStoreQty }}
+                                                <small>{{ $product->baseUnit->name }}</small>
+                                            </h4>
+                                            @if($product->storeStocks->first()->quantity < $product->min_stock)
+                                                <span class="badge bg-danger-light text-danger mt-1">Stok Rendah</span>
+                                            @else
+                                                <span class="badge bg-success-light text-success mt-1">Tersedia</span>
+                                            @endif
+                                        </div>
+                                        <div class="icon-circle bg-info">
+                                            <i class="fas fa-store fa-lg text-white"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <h6 class="fw-bold mb-3">Stok Toko Anda</h6>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Belum ada informasi stok untuk toko Anda.
+                            </div>
+                        @endif
+                    @endif
                 </div>
             </div>
 
