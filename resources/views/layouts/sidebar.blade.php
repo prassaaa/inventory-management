@@ -377,6 +377,21 @@
                 </a>
                 @endcan
 
+                {{-- BARU: Laporan Penggunaan Bahan Baku --}}
+                @can('view ingredient reports')
+                <a href="{{ route('reports.ingredient-usage') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.ingredient-usage') ? 'active-submenu' : '' }}">
+                    <i class="fas fa-flask me-2 text-primary small"></i>
+                    Laporan Bahan Baku
+                    @if(!$canSelectStore)
+                        <small class="d-block text-muted">{{ optional(Auth::user()->store)->name ?? 'Toko' }}</small>
+                    @else
+                        <span class="badge bg-secondary ms-2" title="Data Semua Store">
+                            <i class="fas fa-building"></i>
+                        </span>
+                    @endif
+                </a>
+                @endcan
+
                 @can('view financial reports')
                 <a href="{{ route('reports.finance') }}" class="list-group-item list-group-item-action border-0 ps-5 py-2 {{ request()->routeIs('reports.finance') ? 'active-submenu' : '' }}">
                     <i class="fas fa-coins me-2 text-primary small"></i>

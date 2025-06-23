@@ -39,6 +39,9 @@ class RoleAndPermissionSeeder extends Seeder
             // Financial permissions
             'view financial reports', 'create financial journals', 'edit financial journals', 'delete financial journals',
             
+            // Ingredient reports permissions
+            'view ingredient reports',
+            
             // System permissions
             'manage users', 'manage roles', 'backup database', 'restore database'
         ];
@@ -55,7 +58,7 @@ class RoleAndPermissionSeeder extends Seeder
         
         // Admin Back Office role
         $adminBackOfficeRole = Role::create(['name' => 'admin_back_office']);
-        $adminBackOfficeRole->givePermissionTo(Permission::all()->except(['view financial reports', 'backup database', 'restore database']));
+        $adminBackOfficeRole->givePermissionTo(Permission::all()->except(['backup database', 'restore database']));
         
         // Admin Gudang role
         $adminGudangRole = Role::create(['name' => 'admin_gudang']);
@@ -80,6 +83,7 @@ class RoleAndPermissionSeeder extends Seeder
             'view expenses', 'create expenses', 'edit expenses',
             'view stock stores', 'adjust stock stores',
             'view stock opnames', 'create stock opnames', 'edit stock opnames',
+            'view ingredient reports', // BARU: Admin outlet bisa lihat laporan bahan baku outlet mereka
         ]);
         
         // Kasir role

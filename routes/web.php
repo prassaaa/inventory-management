@@ -234,6 +234,12 @@ Route::middleware(['auth'])->group(function () {
             // Laporan Neraca - BAGIAN BARU
             Route::get('/balance-sheet', [ReportController::class, 'balanceSheet'])->name('balance-sheet');
         });
+
+        // BARU: Laporan Penggunaan Bahan Baku
+        Route::group(['middleware' => ['permission:view ingredient reports']], function () {
+            Route::get('/ingredient-usage', [ReportController::class, 'ingredientUsage'])->name('ingredient-usage');
+            Route::get('/ingredient-usage/export', [ReportController::class, 'exportIngredientUsage'])->name('ingredient-usage.export');
+        });
     });
 
     // System Management Routes

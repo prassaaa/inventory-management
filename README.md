@@ -5,6 +5,7 @@ Install Node.jS  <br />
 php artisan migrate <br />
 php artisan db:seed <br />
 php artisan db:seed --class=ExpenseCategoriesSeeder -v <br />
+php artisan db:seed --class=UpdateIngredientReportsPermissionSeeder -v <br />
 
 
 admin@gmail.com <br />
