@@ -40,19 +40,33 @@ class StockController extends Controller
         // Jika user memiliki store_id (pengguna cabang), gunakan store tersebut
         if (Auth::user()->store_id) {
             $selectedStore = Store::findOrFail(Auth::user()->store_id);
+            $canSelectStore = false; // User cabang tidak bisa pilih store lain
         } else {
-            // Jika user adalah admin pusat, gunakan store dari request atau default ke store pertama
-            $selectedStore = request('store_id') ? Store::findOrFail(request('store_id')) : $stores->first();
+            // Jika user adalah admin pusat (owner), bisa pilih store
+            $canSelectStore = true;
+            $selectedStoreId = request('store_id');
+            
+            if ($selectedStoreId) {
+                $selectedStore = Store::findOrFail($selectedStoreId);
+            } else {
+                // Untuk owner, tidak ada default store - harus pilih sendiri
+                $selectedStore = null;
+            }
         }
 
-        // Gunakan withTrashed() untuk mengambil produk yang sudah dihapus juga
-        $query = StockStore::with(['product' => function($query) {
-                        $query->withTrashed();
-                    }, 'product.category', 'unit'])
-                   ->where('store_id', $selectedStore->id ?? 0);
+        $products = collect(); // Default empty collection
 
-        $products = $query->get();
+        // Ambil produk hanya jika ada store yang dipilih
+        if ($selectedStore) {
+            // Gunakan withTrashed() untuk mengambil produk yang sudah dihapus juga
+            $query = StockStore::with(['product' => function($query) {
+                            $query->withTrashed();
+                        }, 'product.category', 'unit'])
+                       ->where('store_id', $selectedStore->id);
 
-        return view('stock.store', compact('stores', 'selectedStore', 'products'));
+            $products = $query->get();
+        }
+
+        return view('stock.store', compact('stores', 'selectedStore', 'products', 'canSelectStore'));
     }
 }

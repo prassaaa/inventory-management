@@ -27,18 +27,60 @@
     @endif
 
     <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 fw-bold text-primary">Stok di Toko: {{ $selectedStore->name }}</h6>
-            <div class="d-flex align-items-center">
-                <div class="input-group">
-                    <span class="input-group-text bg-light border-0">
-                        <i class="fas fa-search text-primary"></i>
-                    </span>
-                    <input type="text" id="customSearch" class="form-control border-0 bg-light" placeholder="Cari produk...">
+        <div class="card-header py-3">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h6 class="m-0 fw-bold text-primary">
+                        @if($canSelectStore)
+                            Stok Toko
+                        @else
+                            Stok di Toko: {{ $selectedStore->name ?? 'Tidak Ada Toko' }}
+                        @endif
+                    </h6>
+                </div>
+                <div class="col-md-6">
+                    <div class="row g-2">
+                        @if($canSelectStore)
+                        <div class="col-md-7">
+                            <form method="GET" action="{{ route('stock.store') }}" id="storeSelectForm">
+                                <select name="store_id" class="form-select" onchange="document.getElementById('storeSelectForm').submit()">
+                                    <option value="">-- Pilih Toko --</option>
+                                    @foreach($stores as $store)
+                                        <option value="{{ $store->id }}" 
+                                                {{ $selectedStore && $selectedStore->id == $store->id ? 'selected' : '' }}>
+                                            {{ $store->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </form>
+                        </div>
+                        <div class="col-md-5">
+                        @else
+                        <div class="col-md-12">
+                        @endif
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-0">
+                                    <i class="fas fa-search text-primary"></i>
+                                </span>
+                                <input type="text" id="customSearch" class="form-control border-0 bg-light" placeholder="Cari produk...">
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="card-body">
+            @if(!$selectedStore)
+                <div class="alert alert-info d-flex align-items-center" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <div>Silakan pilih toko terlebih dahulu untuk melihat stok produk.</div>
+                </div>
+            @elseif($products->isEmpty())
+                <div class="alert alert-warning d-flex align-items-center" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <div>Tidak ada stok produk ditemukan untuk toko {{ $selectedStore->name }}.</div>
+                </div>
+            @else
             <div class="table-responsive">
                 <table class="table table-hover" id="stockTable" width="100%" cellspacing="0">
                     <thead class="table-light">
@@ -110,6 +152,7 @@
                     </tbody>
                 </table>
             </div>
+            @endif
         </div>
     </div>
 </div>
@@ -118,24 +161,31 @@
 @section('scripts')
 <script>
 $(document).ready(function() {
-    // Inisialisasi DataTable
-    var table = $('#stockTable').DataTable({
-        "paging": true,
-        "lengthChange": true,
-        "searching": true,
-        "ordering": true,
-        "info": true,
-        "autoWidth": false,
-        "responsive": true,
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/id.json"
-        }
-    });
+    // Inisialisasi DataTable hanya jika tabel exists dan memiliki data
+    if ($('#stockTable').length && $('#stockTable tbody tr').length > 0) {
+        var table = $('#stockTable').DataTable({
+            "paging": true,
+            "lengthChange": true,
+            "searching": true,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "responsive": true,
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/id.json"
+            }
+        });
 
-    // Custom search
-    $('#customSearch').keyup(function() {
-        table.search($(this).val()).draw();
-    });
+        // Custom search
+        $('#customSearch').keyup(function() {
+            table.search($(this).val()).draw();
+        });
+    } else {
+        // Jika tidak ada tabel, custom search tetap bisa bekerja untuk elemen biasa
+        $('#customSearch').keyup(function() {
+            // Tidak ada action karena tidak ada tabel
+        });
+    }
 });
 </script>
 @endsection
