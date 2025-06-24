@@ -74,14 +74,8 @@ Barang           Qty      Harga
 
 ================================
 @endif
-
-{{ str_pad('Kata sandi wifi: Kiagenggiring2', 32, ' ', STR_PAD_BOTH) }}
-
 {{ str_pad('Terima Kasih', 32, ' ', STR_PAD_BOTH) }}
 {{ str_pad('Silahkan datang lagi!', 32, ' ', STR_PAD_BOTH) }}
-
-{{ str_pad('Didukung oleh WnO POS', 32, ' ', STR_PAD_BOTH) }}
-{{ str_pad('www.wnopos.com', 32, ' ', STR_PAD_BOTH) }}
     </div>
 
     <script>
